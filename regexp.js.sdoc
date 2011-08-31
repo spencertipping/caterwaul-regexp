@@ -2,3 +2,21 @@ Caterwaul regular expression parser | Spencer Tipping
 Licensed under the terms of the MIT source code license
 
 Introduction.
+This library parses regular expressions into syntax trees. The resulting trees not only describe the structure of the regular expression but also provide information about the strings that it
+matches. It knows all of the standard Javascript regular expression constructs such as groups, backreferences, lookahead, etc.
+
+Implementation.
+Regular expressions support three binary operators. One is the dash, used for character ranges; another is the pipe, which is used for alternatives; and the third is the implicit join
+operator, used wherever two constructs are adjacent. The pipe has lower precedence than implicit joining, and the dash has higher precedence (though it's not exactly comparable, since it's
+special only inside a character class and implicit join does something different there).
+
+This parser interprets regular expressions a little differently than their syntax might suggest. For example:
+
+| caterwaul.parse_regexp(/foo(?=bar)/).structure()      // -> '("," foo ("(?=" bar))'
+  caterwaul.parse_regexp(/foo(?:bar)+/).structure()     // -> '("," foo ("+" ("(?:" bar)))'
+  caterwaul.parse_regexp(/[a-z]/).structure()           // -> '("[" ("-" a z))'
+  caterwaul.parse_regexp(/[^a-z]/).structure()          // -> '("[^" ("-" a z))'
+  caterwaul.parse_regexp(/[a-zABC]/).structure()        // -> '("[" ("," ("," ("," ("-" a z) A) B) C))
+  caterwaul.parse_regexp(/[-abc]/).structure()          // -> '("[" ("," ("," ("," - a) b) c))
+
+
