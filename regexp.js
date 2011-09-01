@@ -87,10 +87,10 @@ caterwaul.js_all()(function ($) {
                                       // A very small parser combinator library without memoization.
                                       char(c)(p)              = p.i < s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i),            i: p.i + 1},
                                       string(cs)(p)           = p.i < s.length && s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
-                                      not(n, f)(p)            = f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
+                                      not(n, f)(p)            = p.i >= s.length || f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
                                       any(n)(p)               = p.i < s.length && {v: s.substr(p.i, n), i: p.i + n},
                                       alt(ps = arguments)(p)  = ps |[x(p)] |seq,
-                                      many(f)(p)              = p /~![f(x) || null] -seq -re- {v: it *[x.v] -seq, i: it[it.length - 1].i} /when [it.length],
+                                      many(f)(p)              = p /~![f(x) || null] -seq -re- {v: it *[x.v] -seq, i: it[it.length - 1].i} /when [it.length > 1],
                                       join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se [it && ns.push(it.v)]] -seq -re- {v: ns, i: it.i} /when.it -where [ns = []],
 
                                       map(parser, f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
