@@ -67,13 +67,18 @@ caterwaul.js_all()(function ($) {
   $.regexp.syntax = $.syntax_subclass(regexp_ctor, regexp_methods),
   $.regexp.parse  = regexp_parse,
 
-  where [regexp_ctor(data, context) = data instanceof this.constructor ?
+  where [// Implementation note:
+         // Copy-constructor functionality is triggered by passing an instance of the tree into its own constructor. The goal is to obtain a new instance of the same kind of tree, but without
+         // any children. This is used by the rmap() method, which needs to build up a parallel tree but will add the children manually. That's what the 'data instanceof this.constructor'
+         // check is all about.
+
+         regexp_ctor(data, context) = data instanceof this.constructor ?
                                         this -se [it.data = data.data, it.length = 0, it.context = data.context] :
                                         this -se [it.data = data,      it.length = 0, it.context = context,      Array.prototype.slice.call(arguments, 2) *![it.push(x)] -seq],
 
          regexp_methods             = {},
 
-         regexp_parse(r)            = join(toplevel({i: 0}), end) -re [it ? it.v[0] : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
+         regexp_parse(r)            = join(toplevel, end)({i: 0}) -re [it ? it.v[0] : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
 
                               -where [pieces                  = /^\/(.*)\/([gim]*)$/.exec(r.toString()) || /^(.*)$/.exec(r.toString()),
                                       s                       = pieces[1],
@@ -90,7 +95,7 @@ caterwaul.js_all()(function ($) {
                                       not(n, f)(p)            = p.i >= s.length || f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
                                       any(n)(p)               = p.i < s.length && {v: s.substr(p.i, n), i: p.i + n},
                                       alt(ps = arguments)(p)  = ps |[x(p)] |seq,
-                                      many(f)(p)              = p /~![f(x) || null] -seq -re- {v: it *[x.v] -seq, i: it[it.length - 1].i} /when [it.length > 1],
+                                      many(f)(p)              = p /~![f(x) || null] -seq -re- {v: it.slice(1) *[x.v] -seq, i: it[it.length - 1].i} /when [it.length > 1],
                                       join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se [it && ns.push(it.v)]] -seq -re- {v: ns, i: it.i} /when.it -where [ns = []],
 
                                       map(parser, f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
@@ -98,16 +103,33 @@ caterwaul.js_all()(function ($) {
                                       ident                   = char('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
                                       digit                   = char('0123456789'),
                                       hex                     = char('0123456789ABCDEFabcdef'),
+                                      number                  = map(many(digit), given.xs in +xs.join('')),
 
-                                      end(p)                  = p.i === s.length - 1 && p,
+                                      end(p)                  = p.i === s.length && p,
 
                                       // Forward definition of recursive rules
                                       toplevel(p)             = toplevel(p),
+                                      term(p)                 = term(p),
                                       atom(p)                 = atom(p),
 
-                                      toplevel                = alt(map(join(no_pipes, char('|'), toplevel), given.xs in node('|', xs[0], xs[1])), no_pipes)
+                                      toplevel                = alt(map(join(no_pipes, char('|'), toplevel), given.xs in node('|', xs[0], xs[2])), no_pipes)
                                                         -where [no_pipes(p) = no_pipes(p),
-                                                                no_pipes    = alt(map(join(atom, no_pipes), given.xs in node(',', xs[0], xs[1])), atom)],
+                                                                no_pipes    = alt(map(join(term, no_pipes), given.xs in node(',', xs[0], xs[1])), term)],
+
+                                      term                    = alt(map(join(atom, modifiers), given.xs in xs[1] -se- it.push(xs[0])), atom)
+                                                        -where [star          = map(char('*'), node),
+                                                                plus          = map(char('+'), node),
+                                                                question_mark = map(char('?'), node),
+                                                                repetition    = alt(map(join(char('{'), number, char('}')),                    given.xs in node('{', xs[1], xs[1])),
+                                                                                    map(join(char('{'), number, char(','), char('}')),         given.xs in node('{', xs[1], Infinity)),
+                                                                                    map(join(char('{'), number, char(','), number, char('}')), given.xs in node('{', xs[1], xs[3]))),
+
+                                                                modifier      = alt(star, plus, repetition),    // Deliberately omitting question mark, because it can't be non-greedy
+
+                                                                non_greedy    = char('?'),
+                                                                modifiers     = alt(map(join(modifier, non_greedy), given.xs in xs[0] -se [it.data += xs[1]]),
+                                                                                    modifier,
+                                                                                    question_mark)],
 
                                       atom                    = base
                                                         -where [positive_lookahead = map(join(string('(?='), toplevel, string(')')), given.xs in node('(?=', xs[1])),
