@@ -10,3 +10,14 @@ instance:
 
 Like most Caterwaul parsers, this one returns instances of Caterwaul syntax
 trees. The main difference is that these trees have regexp-specific methods.
+
+Because this project is implemented as a Caterwaul extension, you can try it
+out interactively:
+
+$ chmod u+x regexp.html
+$ ./regexp.html repl
+( a bunch of stuff )
+caterwaul> caterwaul.regexp(/foo/).structure()
+'("," f ("," o o))'
+caterwaul> ^D
+$
