@@ -73,7 +73,7 @@ caterwaul.js_all()(function ($) {
 
          regexp_methods             = {},
 
-         regexp_parse(r)            = toplevel({i: 0}) -re [it ? it.v : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
+         regexp_parse(r)            = join(toplevel({i: 0}), end) -re [it ? it.v[0] : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
 
                               -where [pieces                  = /^\/(.*)\/([gim]*)$/.exec(r.toString()) || /^(.*)$/.exec(r.toString()),
                                       s                       = pieces[1],
@@ -85,7 +85,7 @@ caterwaul.js_all()(function ($) {
                                       node(xs = arguments)    = new $.regexp.syntax(xs[0], context) -se- Array.prototype.slice.call(xs, 1) *![it.push(x)] /seq,
 
                                       // A very small parser combinator library without memoization.
-                                      char(c)(p)              = p.i < s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i), i: p.i + 1},
+                                      char(c)(p)              = p.i < s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i),            i: p.i + 1},
                                       string(cs)(p)           = p.i < s.length && s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
                                       not(n, f)(p)            = f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
                                       any(n)(p)               = p.i < s.length && {v: s.substr(p.i, n), i: p.i + n},
@@ -98,7 +98,8 @@ caterwaul.js_all()(function ($) {
                                       ident                   = char('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
                                       digit                   = char('0123456789'),
                                       hex                     = char('0123456789ABCDEFabcdef'),
-                                      number                  = map(join(digit), given.xs in +xs.join('')),
+
+                                      end(p)                  = p.i === s.length - 1 && p,
 
                                       // Forward definition of recursive rules
                                       toplevel(p)             = toplevel(p),
@@ -135,8 +136,8 @@ caterwaul.js_all()(function ($) {
                                                                 // Fun stuff: Is the backreference within bounds? If not, then reject the second digit. This requires direct style rather than
                                                                 // combinatory, since the parser's behavior changes as the parse is happening.
                                                                 backreference(p)   = map(join(char('\\'), digit, digit), given.xs in +'#{xs[1]}#{xs[2]}')(p)
-                                                                                     -re [it && it.v <= context.groups ? {v: node('\\', it.v, context.groups[it.v]), i: it.i} :
-                                                                                                                         single_digit_backreference(p)]
+                                                                                     -re [it && it.v <= context.groups.length ? {v: node('\\', it.v, context.groups[it.v]), i: it.i} :
+                                                                                                                                single_digit_backreference(p)]
 
                                                                              -where [single_digit_backreference = map(join(char('\\'), digit),
                                                                                                                       given.xs in node('\\', +xs[1], context.groups[+xs[1]]))],
