@@ -2,9 +2,9 @@ A library to construct parse trees from Javascript regular expressions. You can
 use it to figure out things about the kinds of strings that will match; for
 instance:
 
-> caterwaul.parse_regexp(/foo(bar)?\w+/).structure()
+> caterwaul.regexp(/foo(bar)?\w+/).structure()
 '("," ("," foo ("?" ("(" bar))) ("+" \w))'
-> caterwaul.parse_regexp(/foo(bar)?\w+/).example()
+> caterwaul.regexp(/foo(bar)?\w+/).example()
 'fooA'
 >
 
