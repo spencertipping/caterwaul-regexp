@@ -82,7 +82,7 @@ caterwaul.js_all()(function ($) {
 
                                       add_group(node)         = context.groups.push(node),
 
-                                      node(xs = arguments)    = new regexp_syntax_constructor(xs[0], context) -se- xs.slice(1) *![it.push(x)] /seq,
+                                      node(xs = arguments)    = new $.regexp.syntax(xs[0], context) -se- Array.prototype.slice.call(xs, 1) *![it.push(x)] /seq,
 
                                       // A very small parser combinator library without memoization.
                                       char(c)(p)              = c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i), i: p.i + 1},
@@ -90,10 +90,10 @@ caterwaul.js_all()(function ($) {
                                       not(n, f)(p)            = f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
                                       any(n)(p)               = {v: s.substr(p.i, n), i: p.i + n},
                                       alt(ps = arguments)(p)  = ps |[x(p)] |seq,
-                                      many(f)(p)              = p /~![f(x) -se [it && ns.push(it.v)] || null] -seq -re- {v: ns, i: it.i} -where [ns = []],
-                                      join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se- ns.push(it.v)] -seq -re- {v: ns, i: it.i} -where [ns = []],
+                                      many(f)(p)              = p /~![f(x) -se [it && ns.push(it.v)] || null]  -seq -re- {v: ns, i: it.i} -where [ns = []],
+                                      join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se [it && ns.push(it.v)]] -seq -re- {v: ns, i: it.i} -where [ns = []],
 
-                                      map(parser)(f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
+                                      map(parser, f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
 
                                       ident       = char('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
                                       digit       = char('0123456789'),
@@ -104,7 +104,7 @@ caterwaul.js_all()(function ($) {
                                                         no_pipes)(p)
 
                                             -where [no_pipes(p) = alt(map(join(atom, no_pipes), given.xs in node(',', xs[0], xs[1])),
-                                                                      atom)],
+                                                                      atom)(p)],
 
                                       atom(p)     = base(p)
 
@@ -142,7 +142,7 @@ caterwaul.js_all()(function ($) {
 
                                                     dot                = map(char('.'), node),
                                                     word               = map(many(ident), given.xs in node(xs.join(''))),
-                                                    other              = map(not(char(')|')), node),
+                                                    other              = map(not(1, char(')|')), node),
 
                                                     base               = alt(positive_lookahead, negative_lookahead, forgetful_group, group,
                                                                              character_not_in, character_in, zero_width, escaped, escaped_slash,
