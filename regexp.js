@@ -85,13 +85,13 @@ caterwaul.js_all()(function ($) {
                                       node(xs = arguments)    = new $.regexp.syntax(xs[0], context) -se- Array.prototype.slice.call(xs, 1) *![it.push(x)] /seq,
 
                                       // A very small parser combinator library without memoization.
-                                      char(c)(p)              = c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i), i: p.i + 1},
-                                      string(cs)(p)           = s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
+                                      char(c)(p)              = p.i < s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i), i: p.i + 1},
+                                      string(cs)(p)           = p.i < s.length && s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
                                       not(n, f)(p)            = f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
-                                      any(n)(p)               = {v: s.substr(p.i, n), i: p.i + n},
+                                      any(n)(p)               = p.i < s.length && {v: s.substr(p.i, n), i: p.i + n},
                                       alt(ps = arguments)(p)  = ps |[x(p)] |seq,
-                                      many(f)(p)              = p /~![f(x) -se [it && ns.push(it.v)] || null]  -seq -re- {v: ns, i: it.i} -where [ns = []],
-                                      join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se [it && ns.push(it.v)]] -seq -re- {v: ns, i: it.i} -where [ns = []],
+                                      many(f)(p)              = p /~![f(x) || null] -seq -re- {v: it *[x.v] -seq, i: it[it.length - 1].i} /when [it.length],
+                                      join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se [it && ns.push(it.v)]] -seq -re- {v: ns, i: it.i} /when.it -where [ns = []],
 
                                       map(parser, f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
 
@@ -101,16 +101,14 @@ caterwaul.js_all()(function ($) {
                                       number                  = map(join(digit), given.xs in +xs.join('')),
 
                                       // Forward definition of recursive rules
-                                      atom(p)                 = atom(p),
                                       toplevel(p)             = toplevel(p),
+                                      atom(p)                 = atom(p),
 
                                       toplevel                = alt(map(join(no_pipes, char('|'), toplevel), given.xs in node('|', xs[0], xs[1])), no_pipes)
-
                                                         -where [no_pipes(p) = no_pipes(p),
                                                                 no_pipes    = alt(map(join(atom, no_pipes), given.xs in node(',', xs[0], xs[1])), atom)],
 
                                       atom                    = base
-
                                                         -where [positive_lookahead = map(join(string('(?='), toplevel, string(')')), given.xs in node('(?=', xs[1])),
                                                                 negative_lookahead = map(join(string('(?!'), toplevel, string(')')), given.xs in node('(?!', xs[1])),
                                                                 forgetful_group    = map(join(string('(?:'), toplevel, string(')')), given.xs in node('(?:', xs[1])),
@@ -121,14 +119,14 @@ caterwaul.js_all()(function ($) {
 
                                                                              -where [each = alt(map(join(any(1), char('-'), any(1)), given.xs in node('-', node(xs[0]), node(xs[2]))),
                                                                                                 map(join(char('\\'), any(1)),        given.xs in node(xs.join(''))),
-                                                                                                map(any(1),                          node))],
+                                                                                                map(not(1, char(']')),               node))],
 
                                                                 character_not_in   = map(join(string('[^'),  character_class, string(']')), given.xs in node('[^', xs[1])),
                                                                 character_in       = map(join(string('['),   character_class, string(']')), given.xs in node('[',  xs[1])),
 
-                                                                zero_width         = map(alt(char('^$'), map(join(char('\\'), char('bB')),      given.xs in xs.join(''))), node),
-                                                                escaped            = map(join(char('\\'), char('WwSsDdfnrtv0*+.?|()[]{}\\$^')), given.xs in node(xs.join(''))),
-                                                                escaped_slash      = map(string('\\/'),                                         given.x  in node('/')),
+                                                                zero_width         = map(char('^$'), node),
+                                                                escaped            = map(join(char('\\'), char('BbWwSsDdfnrtv0*+.?|()[]{}\\$^')), given.xs in node(xs.join(''))),
+                                                                escaped_slash      = map(string('\\/'),                                           given.x  in node('/')),
 
                                                                 control            = map(join(string('\\c'), any(1)),             given.xs in node(xs.join(''))),
                                                                 hex_code           = map(join(string('\\x'), hex, hex),           given.xs in node(xs.join(''))),
