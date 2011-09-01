@@ -4,8 +4,8 @@ instance:
 
 > caterwaul.regexp(/foo(bar)?\w+/).structure()
 '("," ("," foo ("?" ("(" bar))) ("+" \w))'
-> caterwaul.regexp(/foo(bar)?\w+/).example()
-'fooA'
+> caterwaul.regexp(/foo(bar)\1+(?!bif)/).minimum_length()
+9
 >
 
 Like most Caterwaul parsers, this one returns instances of Caterwaul syntax
