@@ -64,86 +64,88 @@
 
 caterwaul.js_all()(function ($) {
   $.regexp(r)     = $.regexp.parse.apply(this, arguments),
-  $.regexp.syntax = $.syntax_subclass(regexp_syntax_constructor, regexp_methods),
+  $.regexp.syntax = $.syntax_subclass(regexp_ctor, regexp_methods),
   $.regexp.parse  = regexp_parse,
 
-  where [regexp_syntax_constructor(data, context) = data instanceof this.constructor ?
-                                                      this -se [it.data = data.data, it.length = 0, it.context = data.context] :
-                                                      this -se [it.data = data,      it.length = 0, it.context = context,      Array.prototype.slice.call(arguments, 2) *![it.push(x)] -seq],
+  where [regexp_ctor(data, context) = data instanceof this.constructor ?
+                                        this -se [it.data = data.data, it.length = 0, it.context = data.context] :
+                                        this -se [it.data = data,      it.length = 0, it.context = context,      Array.prototype.slice.call(arguments, 2) *![it.push(x)] -seq],
 
-         regexp_parse(r)                          = toplevel({i: 0}) -re [it ? it.v : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]],
+         regexp_methods             = {},
 
-                                            -where [pieces                  = /^\/(.*)\/([gim]*)$/.exec(r.toString()) || /^(.*)$/.exec(r.toString()),
-                                                    s                       = pieces[1],
-                                                    flags                   = pieces[2] -re- {i: /i/.test(it), m: /m/.test(it), g: /g/.test(it)},
-                                                    context                 = {groups: [], flags: flags},
+         regexp_parse(r)            = toplevel({i: 0}) -re [it ? it.v : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
 
-                                                    add_group(node)         = context.groups.push(node),
+                              -where [pieces                  = /^\/(.*)\/([gim]*)$/.exec(r.toString()) || /^(.*)$/.exec(r.toString()),
+                                      s                       = pieces[1],
+                                      flags                   = pieces[2] -re- {i: /i/.test(it), m: /m/.test(it), g: /g/.test(it)},
+                                      context                 = {groups: [], flags: flags},
 
-                                                    node(xs = arguments)    = new regexp_syntax_constructor(xs[0], context) -se- xs.slice(1) *![it.push(x)] /seq,
+                                      add_group(node)         = context.groups.push(node),
 
-                                                    // A very small parser combinator library without memoization.
-                                                    char(c)(p)              = c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i), i: p.i + 1},
-                                                    string(cs)(p)           = s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
-                                                    not(n, f)(p)            = f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
-                                                    any(n)(p)               = {v: s.substr(p.i, n), i: p.i + n},
-                                                    alt(ps = arguments)(p)  = ps |[x(p)] |seq,
-                                                    many(f)(p)              = p /~![f(x) -se [it && ns.push(it.v)] || null] -seq -re- {v: ns, i: it.i} -where [ns = []],
-                                                    join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se- ns.push(it.v)] -seq -re- {v: ns, i: it.i} -where [ns = []],
+                                      node(xs = arguments)    = new regexp_syntax_constructor(xs[0], context) -se- xs.slice(1) *![it.push(x)] /seq,
 
-                                                    map(parser)(f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
+                                      // A very small parser combinator library without memoization.
+                                      char(c)(p)              = c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i), i: p.i + 1},
+                                      string(cs)(p)           = s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
+                                      not(n, f)(p)            = f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
+                                      any(n)(p)               = {v: s.substr(p.i, n), i: p.i + n},
+                                      alt(ps = arguments)(p)  = ps |[x(p)] |seq,
+                                      many(f)(p)              = p /~![f(x) -se [it && ns.push(it.v)] || null] -seq -re- {v: ns, i: it.i} -where [ns = []],
+                                      join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se- ns.push(it.v)] -seq -re- {v: ns, i: it.i} -where [ns = []],
 
-                                                    ident       = char('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
-                                                    digit       = char('0123456789'),
-                                                    hex         = char('0123456789ABCDEFabcdef'),
-                                                    number      = map(join(digit), given.xs in +xs.join('')),
+                                      map(parser)(f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
 
-                                                    toplevel(p) = alt(map(join(no_pipes, char('|'), toplevel), given.xs in node('|', xs[0], xs[1])),
-                                                                      no_pipes)(p)
+                                      ident       = char('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
+                                      digit       = char('0123456789'),
+                                      hex         = char('0123456789ABCDEFabcdef'),
+                                      number      = map(join(digit), given.xs in +xs.join('')),
 
-                                                          -where [no_pipes(p) = alt(map(join(atom, no_pipes), given.xs in node(',', xs[0], xs[1])),
-                                                                                    atom)],
+                                      toplevel(p) = alt(map(join(no_pipes, char('|'), toplevel), given.xs in node('|', xs[0], xs[1])),
+                                                        no_pipes)(p)
 
-                                                    atom(p)     = base(p)
+                                            -where [no_pipes(p) = alt(map(join(atom, no_pipes), given.xs in node(',', xs[0], xs[1])),
+                                                                      atom)],
 
-                                                          -where [positive_lookahead = map(join(string('(?='), toplevel, string(')')), given.xs in node('(?=', xs[1])),
-                                                                  negative_lookahead = map(join(string('(?!'), toplevel, string(')')), given.xs in node('(?!', xs[1])),
-                                                                  forgetful_group    = map(join(string('(?:'), toplevel, string(')')), given.xs in node('(?:', xs[1])),
-                                                                  group              = map(join(string('('),   toplevel, string(')')), given.xs in node('(',   xs[1]) -se- add_group(it)),
+                                      atom(p)     = base(p)
 
-                                                                  character_class(p) = alt(map(join(each, character_class), given.xs in node(',', xs[0], xs[1])),
-                                                                                           each)(p),
+                                            -where [positive_lookahead = map(join(string('(?='), toplevel, string(')')), given.xs in node('(?=', xs[1])),
+                                                    negative_lookahead = map(join(string('(?!'), toplevel, string(')')), given.xs in node('(?!', xs[1])),
+                                                    forgetful_group    = map(join(string('(?:'), toplevel, string(')')), given.xs in node('(?:', xs[1])),
+                                                    group              = map(join(string('('),   toplevel, string(')')), given.xs in node('(',   xs[1]) -se- add_group(it)),
 
-                                                                               -where [each = alt(map(join(any(1), char('-'), any(1)), given.xs in node('-', node(xs[0]), node(xs[2]))),
-                                                                                                  map(join(char('\\'), any(1)),        given.xs in node(xs.join(''))),
-                                                                                                  map(any(1),                          node))],
+                                                    character_class(p) = alt(map(join(each, character_class), given.xs in node(',', xs[0], xs[1])),
+                                                                             each)(p)
 
-                                                                  character_not_in   = map(join(string('[^'),  character_class, string(']')), given.xs in node('[^', xs[1])),
-                                                                  character_in       = map(join(string('['),   character_class, string(']')), given.xs in node('[',  xs[1])),
+                                                                 -where [each = alt(map(join(any(1), char('-'), any(1)), given.xs in node('-', node(xs[0]), node(xs[2]))),
+                                                                                    map(join(char('\\'), any(1)),        given.xs in node(xs.join(''))),
+                                                                                    map(any(1),                          node))],
 
-                                                                  zero_width         = map(alt(char('^$'), map(join(char('\\'), char('bB')),      given.xs in xs.join(''))), node),
-                                                                  escaped            = map(join(char('\\'), char('WwSsDdfnrtv0*+.?|()[]{}\\$^')), given.xs in node(xs.join(''))),
-                                                                  escaped_slash      = map(string('\\/'),                                         given.x  in node('/')),
+                                                    character_not_in   = map(join(string('[^'),  character_class, string(']')), given.xs in node('[^', xs[1])),
+                                                    character_in       = map(join(string('['),   character_class, string(']')), given.xs in node('[',  xs[1])),
 
-                                                                  control            = map(join(string('\\c'), any(1)),             given.xs in node(xs.join(''))),
-                                                                  hex_code           = map(join(string('\\x'), hex, hex),           given.xs in node(xs.join(''))),
-                                                                  unicode            = map(join(string('\\u'), hex, hex, hex, hex), given.xs in node(xs.join(''))),
+                                                    zero_width         = map(alt(char('^$'), map(join(char('\\'), char('bB')),      given.xs in xs.join(''))), node),
+                                                    escaped            = map(join(char('\\'), char('WwSsDdfnrtv0*+.?|()[]{}\\$^')), given.xs in node(xs.join(''))),
+                                                    escaped_slash      = map(string('\\/'),                                         given.x  in node('/')),
 
-                                                                  // Fun stuff: Is the backreference within bounds? If not, then reject the second digit. This requires direct style rather than
-                                                                  // combinatory, since the parser's behavior changes as the parse is happening.
-                                                                  backreference(p)   = map(join(char('\\'), digit, digit), given.xs in +'#{xs[1]}#{xs[2]}')(p)
-                                                                                       -re [it && it.v <= context.groups ? {v: node('\\', it.v, context.groups[it.v]), i: it.i} :
-                                                                                                                           single_digit_backreference(p)]
+                                                    control            = map(join(string('\\c'), any(1)),             given.xs in node(xs.join(''))),
+                                                    hex_code           = map(join(string('\\x'), hex, hex),           given.xs in node(xs.join(''))),
+                                                    unicode            = map(join(string('\\u'), hex, hex, hex, hex), given.xs in node(xs.join(''))),
 
-                                                                               -where [single_digit_backreference = map(join(char('\\'), digit),
-                                                                                                                        given.xs in node('\\', +xs[1], context.groups[+xs[1]]))],
+                                                    // Fun stuff: Is the backreference within bounds? If not, then reject the second digit. This requires direct style rather than
+                                                    // combinatory, since the parser's behavior changes as the parse is happening.
+                                                    backreference(p)   = map(join(char('\\'), digit, digit), given.xs in +'#{xs[1]}#{xs[2]}')(p)
+                                                                         -re [it && it.v <= context.groups ? {v: node('\\', it.v, context.groups[it.v]), i: it.i} :
+                                                                                                             single_digit_backreference(p)]
 
-                                                                  dot                = map(char('.'), node),
-                                                                  word               = map(many(ident), given.xs in node(xs.join(''))),
-                                                                  other              = map(not(char(')|')), node),
+                                                                 -where [single_digit_backreference = map(join(char('\\'), digit),
+                                                                                                          given.xs in node('\\', +xs[1], context.groups[+xs[1]]))],
 
-                                                                  base               = alt(positive_lookahead, negative_lookahead, forgetful_group, group,
-                                                                                           character_not_in, character_in, zero_width, escaped, escaped_slash,
-                                                                                           control, hex_code, unicode, backreference, dot, word, other)]]]})(caterwaul);
+                                                    dot                = map(char('.'), node),
+                                                    word               = map(many(ident), given.xs in node(xs.join(''))),
+                                                    other              = map(not(char(')|')), node),
+
+                                                    base               = alt(positive_lookahead, negative_lookahead, forgetful_group, group,
+                                                                             character_not_in, character_in, zero_width, escaped, escaped_slash,
+                                                                             control, hex_code, unicode, backreference, dot, word, other)]]]})(caterwaul);
 
 // Generated by SDoc 
