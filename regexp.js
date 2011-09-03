@@ -35,6 +35,17 @@
 
 // | caterwaul.regexp(/(?:_a)*/).match(caterwaul.regexp(/a*/))        // -> {_a: a, _: a*}
 
+// Configuration options.
+// You can specify some options after the regexp that you're parsing. These impact how the parser works, sometimes doing things that are semantically incorrect but useful anyway. One such option
+// is 'atom', which can bet set to either 'character' or 'word'. By default it's set to 'character', meaning that each character is considered a separate atom. This is semantically correct, since
+// repetition operators such as + and * apply only to the preceding character.
+
+// However, sometimes you want to consider each word to be its own atom; this is especially useful when building patterns and matching against them. For example:
+
+// | caterwaul.regexp(/_foo _bar+/, {atom: 'word'}).match(caterwaul.regexp(/ab+/))         // -> {_foo: a, _bar: b, _: ab+}
+
+// Setting {atom: 'word'} implies that literal whitespace is removed from the regexp, since otherwise there would be no way to separate words. You can still match space characters by using \x20.
+
 // Supported syntax.
 // This library parses the following constructs (obtained from the Mozilla regular expression documentation: https://developer.mozilla.org/en/JavaScript/Guide/Regular_Expressions):
 
@@ -53,9 +64,9 @@
 // two digits. Presumably the engine is insightful enough to discard digits that would forms numbers larger than the number of seen match groups, and this parser does that.
 
 caterwaul.js_all()(function ($) {
-  $.regexp(r)     = $.regexp.parse.apply(this, arguments),
-  $.regexp.syntax = $.syntax_subclass(regexp_ctor, regexp_methods),
-  $.regexp.parse  = regexp_parse,
+  $.regexp(r, options) = $.regexp.parse.apply(this, arguments),
+  $.regexp.syntax      = $.syntax_subclass(regexp_ctor, regexp_methods),
+  $.regexp.parse       = regexp_parse,
 
   where [// Implementation note:
          // Copy-constructor functionality is triggered by passing an instance of the tree into its own constructor. The goal is to obtain a new instance of the same kind of tree, but without
@@ -134,9 +145,11 @@ caterwaul.js_all()(function ($) {
                                                                    this.is_atom()                                     ? /^\w{2,}$/.test(this.data) ? '(?:#{this.data})' : this.data :
                                                                                                                         this.data],
 
-         regexp_parse(r)            = join(toplevel, end)({i: 0}) -re [it ? it.v[0] : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
+         regexp_parse(r, options)   = join(toplevel, end)({i: 0}) -re [it ? it.v[0] : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
 
-                              -where [pieces                  = /^\/(.*)\/([gim]*)$/.exec(r.toString()) || /^(.*)$/.exec(r.toString()),
+                              -where [settings                = $.merge({atom: 'character'}, options),
+
+                                      pieces                  = /^\/(.*)\/([gim]*)$/.exec(r.toString()) || /^(.*)$/.exec(r.toString()),
                                       s                       = pieces[1],
                                       flags                   = pieces[2] -re- {i: /i/.test(it), m: /m/.test(it), g: /g/.test(it)},
                                       context                 = {groups: [], flags: flags},
@@ -153,6 +166,7 @@ caterwaul.js_all()(function ($) {
                                       alt(ps = arguments)(p)  = ps |[x(p)] |seq,
                                       many(f)(p)              = p /~![f(x) || null] -seq -re- {v: it.slice(1) *[x.v] -seq, i: it[it.length - 1].i} /when [it.length > 1],
                                       join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se [it && ns.push(it.v)]] -seq -re- {v: ns, i: it.i} /when.it -where [ns = []],
+                                      zero(p)                 = p,
 
                                       map(parser, f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
 
@@ -226,8 +240,14 @@ caterwaul.js_all()(function ($) {
                                                                 dot                = map(char('.'), node),
                                                                 other              = map(not(1, char(')|+*?{')), node),
 
-                                                                base               = alt(positive_lookahead, negative_lookahead, forgetful_group, group,
-                                                                                         character_not_in, character_in, zero_width, escaped, escaped_slash,
-                                                                                         control, hex_code, unicode, backreference, dot, other)]]]})(caterwaul);
+                                                                maybe_word         = settings.atom === 'word' ? alt(map(many(ident), given.xs in node(xs.join(''))), other) :
+                                                                                                                other,
+
+                                                                maybe_munch_spaces = settings.atom === 'word' ? alt(many(char(' ')), zero) : zero,
+
+                                                                base               = map(join(maybe_munch_spaces, alt(positive_lookahead, negative_lookahead, forgetful_group, group,
+                                                                                                                      character_not_in, character_in, zero_width, escaped, escaped_slash,
+                                                                                                                      control, hex_code, unicode, backreference, dot, maybe_word)),
+                                                                                         given.xs in xs[1])]]]})(caterwaul);
 
 // Generated by SDoc 
