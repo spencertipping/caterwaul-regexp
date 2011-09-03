@@ -600,6 +600,7 @@ parse_associates_right = hash('= += -= *= /= %= &= ^= |= <<= >>= >>>= ~ ! new ty
 //     These functions let you make "changes" to a node by returning a modified copy.
 
       repopulated_with: function (xs)   {return new this.constructor(this.data, xs)},
+      with_data:        function (d)    {return new this.constructor(d, Array.prototype.slice.call(this))},
       change:           function (i, x) {return se(new this.constructor(this.data, Array.prototype.slice.call(this)), function (n) {n[i] = x})},
       compose_single:   function (i, f) {return this.change(i, f(this[i]))},
 
@@ -719,19 +720,42 @@ parse_associates_right = hash('= += -= *= /= %= &= ^= |= <<= >>= >>>= ~ ! new ty
 //   Wildcards are used for pattern matching and are identified by beginning with an underscore. This is a very frequently-called method, so I'm using a very inexpensive numeric check rather
 //   than a string comparison. The ASCII value for underscore is 95.
 
+    var parse_hex   = caterwaul_global.parse_hex       = function (digits) {for (var result = 0, i = 0, l = digits.length, d; i < l; ++i, result *= 16)
+                                                                              result += (d = digits.charCodeAt(i)) <= 58 ? d - 48 : (d & 0x5f) - 55;
+                                                                            return result},
+
+        parse_octal = caterwaul_global.parse_octal     = function (digits) {for (var result = 0, i = 0, l = digits.length; i < l; ++i, result *= 8) result += digits.charCodeAt(i) - 48;
+                                                                            return result},
+
+    unescape_string = caterwaul_global.unescape_string = function (s) {for (var i = 0, c, l = s.length, result = [], is_escaped = false; i < l; ++i)
+                                                                         if (is_escaped) is_escaped = false,
+                                                                                         result.push((c = s.charAt(i)) === '\\' ? '\\' :
+                                                                                                     c === 'n' ? '\n'     : c === 'r' ? '\r' : c === 'b' ? '\b' : c === 'f' ? '\f' :
+                                                                                                     c === '0' ? '\u0000' : c === 't' ? '\t' : c === 'v' ? '\v' :
+                                                                                                     c === '"' || c === '\'' ? c :
+                                                                                                     c === 'x' ? String.fromCharCode(parse_hex(s.substring(i, ++i + 1))) :
+                                                                                                     c === 'u' ? String.fromCharCode(parse_hex(s.substring(i, (i += 3) + 1))) :
+                                                                                                                 String.fromCharCode(parse_octal(s.substring(i, (i += 2) + 1))));
+                                                                    else if ((c = s.charAt(i)) === '\\') is_escaped = true;
+                                                                    else result.push(c);
+
+                                                                       return result.join('')};
     caterwaul_global.javascript_tree_type_methods = {
                is_string: function () {return /['"]/.test(this.data.charAt(0))},           as_escaped_string: function () {return this.data.substr(1, this.data.length - 2)}, 
                is_number: function () {return /^-?(0x|\d|\.\d+)/.test(this.data)},                 as_number: function () {return Number(this.data)},
               is_boolean: function () {return this.data === 'true' || this.data === 'false'},     as_boolean: function () {return this.data === 'true'},
                is_regexp: function () {return /^\/./.test(this.data)},                     as_escaped_regexp: function () {return this.data.substring(1, this.data.lastIndexOf('/'))},
+                is_array: function () {return this.data === '['},                        as_unescaped_string: function () {return unescape_string(this.as_escaped_string())},
 
              is_wildcard: function () {return this.data.charCodeAt(0) === 95},
+           is_identifier: function () {return this.length === 0 && /^[A-Za-z_$]\w*$/.test(this.data) && ! this.is_boolean() && ! this.is_null_or_undefined() && ! has(lex_op, this.data)},
 
        has_grouped_block: function () {return has(parse_r_until_block, this.data)},                 is_block: function () {return has(parse_block, this.data)},
     is_blockless_keyword: function () {return has(parse_r_optional, this.data)},        is_null_or_undefined: function () {return this.data === 'null' || this.data === 'undefined'},
 
              is_constant: function () {return this.is_number() || this.is_string() || this.is_boolean() || this.is_regexp() || this.is_null_or_undefined()},
           left_is_lvalue: function () {return /=$/.test(this.data) || /\+\+$/.test(this.data) || /--$/.test(this.data)},
+
                 is_empty: function () {return !this.length},                              has_parameter_list: function () {return this.data === 'function' || this.data === 'catch'},
          has_lvalue_list: function () {return this.data === 'var' || this.data === 'const'},  is_dereference: function () {return this.data === '.' || this.data === '[]'},
            is_invocation: function () {return this.data === '()'},              is_contextualized_invocation: function () {return this.is_invocation() && this[0].is_dereference()},
@@ -1428,6 +1452,38 @@ meta::cached_dependency('caterwaul.std.js', <<'__');
 
         function_destructure = function (node) {return function_args_rule.call(this, node) || function_rule.call(this, node)};
 
+//   Literal modification.
+//   Caterwaul 1.1.2 introduces literal modification, which provides ways to reinterpret various types of literals at compile-time. These are always written as postfix property accesses, e.g.
+//   /foo bar/.x -- here, 'x' is the modifier. Cool as it would be to be able to stack modifiers up, right now Caterwaul doesn't support this. Part of the reason is that I'm too lazy/uninsightful
+//   to know how to do it performantly considering the present architecture, but another part of it is that the bugs would become strange and subtle. My goal is to keep the compilation process
+//   reasonably transparent, and you can imagine the bizarre chain of events that would occur if someone wrote a modifier that, for instance, returned a different type of literal. It would be
+//   utter chaos (though a really cool form of it).
+
+//   Sadly, you can't modify object literals. The reason has to do with syntactic ambiguity. Suppose you've got a function like this:
+
+//   | function () {
+//       {foo: 'bar'}.modifier
+//       return true;
+//     }
+
+//   This function fails to parse under SpiderMonkey, since it assumes that {foo: 'bar'} is a statement-level block with a label 'foo' and a discarded string literal 'bar'. Rather than open this
+//   can of worms, I'm just nixing the whole idea of modifying object literals (besides, it doesn't seem particularly useful anyway, though perhaps I'm being myopic about it).
+
+    var modified_literal_form   = $.pattern('_literal._modifier'),
+
+        lookup_literal_modifier = function (caterwaul, type, modifier) {var hash = caterwaul.literal_modifiers[type];
+                                                                        return hash.hasOwnProperty(modifier) && hash[modifier]},
+
+        literal_modifier        = function (node) {var modified_literal = modified_literal_form.call(this, node), literal, expander;
+                                                   if (modified_literal && (literal  = modified_literal._literal) &&
+                                                                           (expander = literal.is_identifier() ? lookup_literal_modifier(this, 'identifier', modified_literal._modifier.data) :
+                                                                                       literal.is_array()      ? lookup_literal_modifier(this, 'array',      modified_literal._modifier.data) :
+                                                                                       literal.is_regexp()     ? lookup_literal_modifier(this, 'regexp',     modified_literal._modifier.data) :
+                                                                                       literal.is_number()     ? lookup_literal_modifier(this, 'number',     modified_literal._modifier.data) :
+                                                                                       literal.is_string()     ? lookup_literal_modifier(this, 'string',     modified_literal._modifier.data) :
+                                                                                                                 null))
+                                                     return expander.call(this, literal)};
+
 //   Modifier syntax.
 //   These are the 'structured forms' I was talking about above. Prior to caterwaul 1.1 these were stored as individual pre-expanded macros. This had a number of problems, perhaps most notably
 //   that it was extremely inefficient. I loaded up caterwaul in the REPL and found that caterwaul.js_ui(caterwaul.js_all()) had 329 macros installed. This meant 329 tree-match tests for every
@@ -1477,16 +1533,77 @@ meta::cached_dependency('caterwaul.std.js', <<'__');
 //   I've got two closures here to avoid putting a conditional in either one of them. In particular, we know already whether we got a macroexpander, so there's no need to test it inside the
 //   function (which will be called lots of times).
 
-    var result = macroexpander ? $(function (node) {return macroexpander.call(this, node) ||
-                                                           string_interpolator.call(this, node) || node.length && (modifier            .call(this, node) ||
-                                                                                                                   function_destructure.call(this, node))}) :
+    var each_node = function (node) {return string_interpolator.call(this, node) || literal_modifier.call(this, node) ||
+                                            node.length && (modifier.call(this, node) || function_destructure.call(this, node))},
 
-                                 $(function (node) {return string_interpolator.call(this, node) || node.length && (modifier            .call(this, node) ||
-                                                                                                                   function_destructure.call(this, node))});
+        result    = macroexpander ? $(function (node) {return macroexpander.call(this, node) || each_node.call(this, node)}) :
+                                    $(each_node);
+
     result.modifiers               = [];
     result.parameterized_modifiers = [];
 
+    result.literal_modifiers = {regexp: {}, array: {}, string: {}, number: {}, identifier: {}};
+
     return result}})(caterwaul);
+
+// Generated by SDoc 
+
+
+
+
+
+// Javascript literal notation | Spencer Tipping
+// Licensed under the terms of the MIT source code license
+
+// Introduction.
+// These macros provide some convenient literal notation for various Javascript literals. For obvious reasons they have names that are unlikely to collide with methods.
+
+(function ($) {
+  $.js_literals = function (caterwaul_function) {
+
+    var function_template = $.parse('function (_) {return _body}');
+
+//   Regular expression literals.
+//   Right now we just support the 'x' flag, which causes all whitespace within the regular expression to be ignored. This is a straightforward preprocessing transformation, since we have access
+//   to the regexp in string form anyway.
+
+//   To make Javascript's regular expressions more useful I've also included the 'qf' modifier. This turns a regular expression into a matching function; for example, /foo/.qf becomes (function
+//   (s) {return /foo/.exec(s)}).
+
+    (function (r) {r.x  = $.reexpander(function (node) {return node.with_data(node.data.replace(/\s+/g, ''))});
+
+                   var call_exec_template = $.parse('_regexp.exec(_)');
+                   r.qf = function (node) {return function_template.replace({_body: call_exec_template.replace({_regexp: node})})}})(caterwaul_function.literal_modifiers.regexp);
+
+//   String literals.
+//   There are a couple of things we can do with strings. First, there's the 'qw' modifier, which causes a string to be split into an array of words at compile-time. So, for instance, the
+//   expression 'foo bar bif'.qw would be compiled into ['foo', 'bar', 'bif']. Another modifier is 'qh', which is like 'qw' but creates a hash instead. So 'foo bar bif baz'.qh would result in
+//   {foo: 'bar', bif: 'baz'}. There's also qr, which converts from a string to a regular expression and does all of the appropriate escape conversions. Some care should be taken with this,
+//   however, because not all regexp escapes are valid in strings. In particular, you can't do things like 'foo\[bar\]'.qr because \[ isn't recognized in strings.
+
+//   Another modifier is 'qs', which is rarely used outside of the context of writing macros. The idea here is to have Caterwaul parse the string and return a reference to the parse tree. So, for
+//   example, 'foo.bar'.qs is compiled into a reference to the parse tree for foo.bar. A caveat here is that the parse happens only once, so any mutations that happen to the syntax tree are
+//   persisted across invocations. (Unlike the way that array and object literals are interpreted, which is to create a new array or object each time that node is evaluated.)
+
+//   Functions can be written concisely using qf. This causes the string to be interpreted as the body of a function whose sole argument is called _. This may change at some point in the future.
+
+    (function (s) {s.qw = $.reexpander(function (node) {for (var array_node = new $.syntax('['), comma = new $.syntax(','), delimiter = node.data.charAt(0),
+                                                                 pieces = node.as_escaped_string().split(/\s+/), i = 0, l = pieces.length; i < l; ++i)
+                                                          comma.push(new $.syntax(delimiter + pieces[i] + delimiter));
+                                                        return array_node.push(comma.unflatten())});
+
+                   s.qh = $.reexpander(function (node) {for (var hash_node = new $.syntax('{'), comma = new $.syntax(','), delimiter = node.data.charAt(0),
+                                                                 pieces = node.as_escaped_string().split(/\s+/), i = 0, l = pieces.length; i < l; i += 2)
+                                                          comma.push(new $.syntax(':', new $.syntax(delimiter + pieces[i] + delimiter), new $.syntax(delimiter + pieces[i + 1] + delimiter)));
+                                                        return hash_node.push(comma.unflatten())});
+
+                   s.qr = $.reexpander(function (node) {return node.with_data('/' + node.as_escaped_string().replace(/\//g, '\\/') + '/')});
+
+                   s.qs = function (node) {return new $.ref($.parse(node.as_unescaped_string()))};
+
+                   s.qf = $.reexpander(function (node) {return function_template.replace({_body: $.parse(node.as_unescaped_string())})})})(caterwaul_function.literal_modifiers.string);
+
+    return caterwaul_function}})(caterwaul);
 
 // Generated by SDoc 
 
@@ -1531,6 +1648,12 @@ meta::cached_dependency('caterwaul.std.js', <<'__');
 
     modifier              ('raise',  $.reexpander('(function () {throw _expression}).call(this)'));
     parameterized_modifier('rescue', $.reexpander('(function () {try {return (_expression)} catch (e) {return (_parameters)}}).call(this)'));
+
+//   Evaluation.
+//   Caterwaul 1.1.2 introduces the 'eval' modifier, which lets you force certain expressions to be evaluated at compile-time. A reference containing the resulting value is dropped into the code,
+//   and any errors are reported as compile-time errors. The expression being evaluated is macroexpanded under the compiling caterwaul function.
+
+    modifier('eval', function (match) {return new $.ref($.compile(this(match._expression)), 'eval')});
 
 // Scoping and referencing.
 // These all impact scope or references somehow -- in other words, they create variable references but don't otherwise impact the nature of evaluation.
@@ -1580,6 +1703,19 @@ meta::cached_dependency('caterwaul.std.js', <<'__');
 //     alert(x), where[x = 10]
 
     parameterized_modifier('where', $.reexpander('(function () {var _parameters; return (_expression)}).call(this)'));
+
+//   Importation.
+//   This is a fun one. Caterwaul 1.1.2 introduces the 'using' modifier, which lets you statically import an object. For example:
+
+//   | log(x) -using- console              // -> (function () {var log = console.log; return log(x)}).call(this)
+
+//   Variables are computed at compile-time, not at runtime. This is much better than using the 'with' keyword, which degrades performance ('using' has no significant performance impact).
+//   However, the calling context is incomplete, as shown above. In particular, methods of the object that you're using will be called with a global 'this' rather than being bound to the object.
+
+    var scope_template = $.parse('(function () {var _variables; return _expression}).call(this)');
+    parameterized_modifier('using', function (match) {var o = $.compile(this(match._parameters)), comma = new $.syntax(',');
+                                                      for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) comma.push(new $.syntax('=', k, new $.ref(o[k])));
+                                                      return scope_template.replace({_variables: comma.unflatten(), _expression: match._expression})});
 
 // Control flow modifiers.
 // These impact how something gets evaluated.
@@ -1932,7 +2068,7 @@ caterwaul.words(caterwaul.js())(function ($) {
 
 
 
-  caterwaul.js_all = function () {return this.seq(this.words(this.js()))}})();
+  caterwaul.js_all = function () {return this.seq(this.words(this.js_literals(this.js())))}})();
 
 // Generated by SDoc 
 
