@@ -12,6 +12,9 @@
 // Usually this is just Caterwaul and the standard extension. If you modify these, you should probably also run 'dependencies edit' to inform the script about where these files are downloaded
 // from.
 
+// Caterwaul JS | Spencer Tipping
+// Licensed under the terms of the MIT source code license
+
 // Introduction.
 // Caterwaul is a Javascript-to-Javascript compiler. Visit http://caterwauljs.org for information about how and why you might use it.
 
@@ -256,10 +259,11 @@ parse_associates_right = hash('= += -= *= /= %= &= ^= |= <<= >>= >>>= ~ ! new ty
 //     Alteration.
 //     These functions let you make "changes" to a node by returning a modified copy.
 
-      repopulated_with: function (xs)   {return new this.constructor(this.data, xs)},
-      with_data:        function (d)    {return new this.constructor(d, Array.prototype.slice.call(this))},
-      change:           function (i, x) {return se(new this.constructor(this.data, Array.prototype.slice.call(this)), function (n) {n[i] = x})},
-      compose_single:   function (i, f) {return this.change(i, f(this[i]))},
+      repopulated_with: function (xs)     {return new this.constructor(this.data, xs)},
+      with_data:        function (d)      {return new this.constructor(d, Array.prototype.slice.call(this))},
+      change:           function (i, x)   {return se(new this.constructor(this.data, Array.prototype.slice.call(this)), function (n) {n[i] = x})},
+      compose_single:   function (i, f)   {return this.change(i, f(this[i]))},
+      slice:            function (x1, x2) {return new this.constructor(this.data, Array.prototype.slice.call(this, x1, x2))},
 
 //     General-purpose traversal.
 //     This is a SAX-style traversal model, useful for analytical or scope-oriented tree traversal. You specify a callback function that is invoked in pre-post-order on the tree (you get events
@@ -1112,17 +1116,33 @@ is_prefix_unary_operator: function () {return has(parse_r, this.data)},         
 //   Caterwaul 1.1.2 introduces infix function notation, which lets the user avoid grouping constructs. It locates anything of the form x /-f/ y or x |-f| y and converts it into f(x, y). The
 //   notation is vaguely borrowed from Haskell, though due to Javascript's limitations it doesn't look as good.
 
-//   You can change the minus sign to a tilde to get n-ary flattening; that is, x /~f/ y / z / ... becomes f(x, y, z, ...). (Normally it left-associates into binary applications.) The same goes
-//   for vertical bar syntax.
+//   You can change the minus sign to a tilde to get n-ary flattening; that is, x /y /... /~f/z becomes f(x, y, ..., z). The same goes for vertical bar syntax. This macroexpansion follows
+//   associativity, so you can do this:
+
+//   | x /!f /-g/ y                // -> g(f(x), y)
 
     var infix_function_slash = $.rereplacer('_x /-_f/ _y', '_f(_x, _y)'), infix_function_bar = $.rereplacer('_x |-_f| _y', '_f(_x, _y)'),
 
-        infix_function_flat  = $.reexpander(function (node) {var match = node.data === '/' && node.flatten('/') || node.data === '|' && node.flatten('|'), l = match && match.length, c;
-                                                             if (l > 2 && match[1].data === 'u~' && (fn = match[1][0])) {
-                                                               for (var result = new $.syntax(',', match[0]), i = 2; i < l; ++i) result.push(match[i]);
-                                                               return new $.syntax('()', match[1][0], result.unflatten())}}),
+        infix_function_flat  = function (node) {var d = node.data, left, fn;
+                                                if ((d === '/' || d === '|') && (left = node[0]).data === d && left[1] && left[1].data === 'u~' && (fn = left[1][0])) {
+                                                  // Pre-expand macros in the left-hand side.
+                                                  for (var comma = new $.syntax(','), n = this(left[0]); n.data === d; n = n[0]) comma.push(n[1]);
+                                                  comma.push(n);
+
+                                                  // The comma arguments are backwards, so reverse them in-place:
+                                                  for (var i = 0, l = comma.length, temp; i < l >> 1; ++i) temp = comma[i], comma[i] = comma[l - i - 1], comma[l - i - 1] = temp;
+
+                                                  return new $.syntax('()', fn, comma.push(this(node[1])).unflatten())}},
 
         infix_function       = function (node) {return infix_function_flat.call(this, node) || infix_function_slash.call(this, node) || infix_function_bar.call(this, node)};
+
+//   Postfix function application.
+//   This is a bit simpler than infix function application and is used when you have a unary function. Sometimes it's simpler to think of a function as a filter than as a wrapper, and this macro
+//   makes it easier to do that. This is particularly useful when you have many nested function calls, for instance if you're defining multi-level function composition:
+
+//   | compose(f, g, h)(x) = x /!h /!g /!f         // -> f(g(h(x)))
+
+    var postfix_function = $.rereplacer('_x /!_f', '_f(_x)');
 
 //   Literal modification.
 //   Caterwaul 1.1.2 introduces literal modification, which provides ways to reinterpret various types of literals at compile-time. These are always written as postfix property accesses, e.g.
@@ -1206,7 +1226,8 @@ is_prefix_unary_operator: function () {return has(parse_r, this.data)},         
 //   function (which will be called lots of times).
 
     var each_node = function (node) {return string_interpolator.call(this, node) || literal_modifier.call(this, node) ||
-                                            node.length && (infix_function.call(this, node) || modifier.call(this, node) || function_destructure.call(this, node))},
+                                            node.length && (modifier.call(this, node) || function_destructure.call(this, node) ||
+                                                            infix_function.call(this, node) || postfix_function.call(this, node))},
 
         result    = macroexpander ? $(function (node) {return macroexpander.call(this, node) || each_node.call(this, node)}) :
                                     $(each_node);
@@ -1655,7 +1676,7 @@ caterwaul.words(caterwaul.js())(function ($) {
                             seq_pattern                            = anon('S[_x]'),
                             promote_seq(f)                         = seq_pattern.replace({_x: f}),
 
-                            parse_body(tree, expand, normal, init) = ((r = block_with_seq.match(tree))               ? parse_body(r._x, expand, sequence_context_normal, init) :
+                            parse_body(tree, expand, normal, init) = ((r = block_with_seq.match(tree))               ? parse_body(r._x, expand, sequence_context_normal, sequence_context_init) :
                                                                       (r = block_with_closure.match(tree))           ? parse_body(r._x, expand, wrapping_normal, wrapping_init) :
 
                                                                       (r = block_with_variable_and_init.match(tree)) ? init(r._x, r._init, prefixed_names(r._var)) :
@@ -1665,13 +1686,14 @@ caterwaul.words(caterwaul.js())(function ($) {
                                                                       (r = block.match(tree))                        ? normal(r._x, standard_names) :
                                                                                                                        normal(promote_function(tree), standard_names))
 
-                                                                     -where [in_sequence_context(f)                   = expand.call(expand, promote_seq(f)),
-                                                                             sequence_context_normal(f, names)        = normal(in_sequence_context(f), names),
+                                                                     -where [in_sequence_context(f)                           = expand.call(expand, promote_seq(f)),
+                                                                             sequence_context_normal(f, names)                = normal(in_sequence_context(f), names),
+                                                                             sequence_context_init(f, init_expression, names) = init  (in_sequence_context(f), init_expression, names),
 
-                                                                             wrapping_normal(f, names)                = normal(close_body(names, f), names),
-                                                                             wrapping_init(f, init_expression, names) = init  (close_body(names, f), init_expression, names),
+                                                                             wrapping_normal(f, names)                        = normal(close_body(names, f), names),
+                                                                             wrapping_init(f, init_expression, names)         = init  (close_body(names, f), init_expression, names),
 
-                                                                             r                                        = null],
+                                                                             r                                                = null],
                             // Modifier parsing
                             tbang_modifier = anon('~!_x'),
                             bang_modifier  = anon('!_x'),
@@ -1951,7 +1973,7 @@ caterwaul.js_all()(function ($) {
                                       term(p)                 = term(p),
                                       atom(p)                 = atom(p),
 
-                                      toplevel                = map(no_pipes /~join/char('|') /toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
+                                      toplevel                = map(no_pipes /char('|') /~join/toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
                                                         -where [no_pipes(p) = no_pipes(p),
                                                                 no_pipes    = map(term /-join/ no_pipes, "node(',', _[0], _[1])".qf) /-alt/ term],
 
@@ -1959,45 +1981,45 @@ caterwaul.js_all()(function ($) {
                                                         -where [star          = char('*') /-map/ node,
                                                                 plus          = char('+') /-map/ node,
                                                                 question_mark = char('?') /-map/ node,
-                                                                repetition    = map(char('{') /~join/number /char('}'),                    "node('{', node(_[1]), node(_[1]))".qf) /~alt/
-                                                                                map(char('{') /~join/number /char(',') /char('}'),         "node('{', node(_[1]), node(Infinity))".qf) /
-                                                                                map(char('{') /~join/number /char(',') /number /char('}'), "node('{', node(_[1]), node(_[3]))".qf),
+                                                                repetition    = map(char('{') /number /~join/char('}'),                    "node('{', node(_[1]), node(_[1]))".qf) /
+                                                                                map(char('{') /number /char(',') /~join/char('}'),         "node('{', node(_[1]), node(Infinity))".qf) /~alt/
+                                                                                map(char('{') /number /char(',') /number /~join/char('}'), "node('{', node(_[1]), node(_[3]))".qf),
 
-                                                                modifier      = star /~alt/plus /repetition,    // Deliberately omitting question mark, because it can't be non-greedy
+                                                                modifier      = star /plus /~alt/repetition,    // Deliberately omitting question mark, because it can't be non-greedy
 
                                                                 non_greedy    = char('?'),
-                                                                modifiers     = map(modifier /-join/ non_greedy, "_[0] -se [it.data += _[1]]".qf) /~alt/modifier /question_mark],
+                                                                modifiers     = map(modifier /-join/ non_greedy, "_[0] -se [it.data += _[1]]".qf) /modifier /~alt/question_mark],
 
                                       atom                    = base
-                                                        -where [positive_lookahead = map(string('(?=') /~join/toplevel /string(')'), "node('(?=', _[1])".qf),
-                                                                negative_lookahead = map(string('(?!') /~join/toplevel /string(')'), "node('(?!', _[1])".qf),
-                                                                forgetful_group    = map(string('(?:') /~join/toplevel /string(')'), "node('(?:', _[1])".qf),
-                                                                group              = map(string('(')   /~join/toplevel /string(')'), "node('(',   _[1]) -se- add_group(it)".qf),
+                                                        -where [positive_lookahead = map(string('(?=') /toplevel /~join/string(')'), "node('(?=', _[1])".qf),
+                                                                negative_lookahead = map(string('(?!') /toplevel /~join/string(')'), "node('(?!', _[1])".qf),
+                                                                forgetful_group    = map(string('(?:') /toplevel /~join/string(')'), "node('(?:', _[1])".qf),
+                                                                group              = map(string('(')   /toplevel /~join/string(')'), "node('(',   _[1]) -se- add_group(it)".qf),
 
                                                                 word               = map(many(ident),                                "node(_.join(''))".qf),
-                                                                word_term          = map(string('(?:') /~join/word /string(')'),     "node(_[1])".qf),
+                                                                word_term          = map(string('(?:') /word /~join/string(')'),     "node(_[1])".qf),
 
                                                                 character_class(p) = character_class(p),
                                                                 character_class    = map(each /-join/ character_class, "node(',', _[0], _[1])".qf) /-alt/ each
 
-                                                                             -where [each = map(any(1) /~join/char('-') /any(1), "node('-', node(_[0]), node(_[2]))".qf) /~alt/
-                                                                                            map(char('\\') /-join/ any(1),       "node(_.join(''))".qf) /
+                                                                             -where [each = map(any(1) /char('-') /~join/any(1), "node('-', node(_[0]), node(_[2]))".qf) /
+                                                                                            map(char('\\') /-join/ any(1),       "node(_.join(''))".qf) /~alt/
                                                                                             map(not(1, char(']')),               node)],
 
-                                                                character_not_in   = map(string('[^') /~join/character_class /string(']'), "node('[^', _[1])".qf),
-                                                                character_in       = map(string('[')  /~join/character_class /string(']'), "node('[',  _[1])".qf),
+                                                                character_not_in   = map(string('[^') /character_class /~join/string(']'), "node('[^', _[1])".qf),
+                                                                character_in       = map(string('[')  /character_class /~join/string(']'), "node('[',  _[1])".qf),
 
                                                                 zero_width         = char('^$') /-map/ node,
-                                                                escaped            = map(join(char('\\'), char('BbWwSsDdfnrtv0*+.?|()[]{}\\$^')), "node(_.join(''))".qf),
-                                                                escaped_slash      = map(string('\\/'),                                           "node('/')".qf),
+                                                                escaped            = map(char('\\') /-join/ char('BbWwSsDdfnrtv0*+.?|()[]{}\\$^'), "node(_.join(''))".qf),
+                                                                escaped_slash      = map(string('\\/'),                                            "node('/')".qf),
 
-                                                                control            = map(string('\\c') /-join/ any(1),            "node(_.join(''))".qf),
-                                                                hex_code           = map(string('\\x') /~join/hex /hex,           "node(_.join(''))".qf),
-                                                                unicode            = map(string('\\u') /~join/hex /hex /hex /hex, "node(_.join(''))".qf),
+                                                                control            = string('\\c') /-join/ any(1)            /-map/ "node(_.join(''))".qf,
+                                                                hex_code           = string('\\x') /hex /~join/hex           /-map/ "node(_.join(''))".qf,
+                                                                unicode            = string('\\u') /hex /hex /hex /~join/hex /-map/ "node(_.join(''))".qf,
 
                                                                 // Fun stuff: Is the backreference within bounds? If not, then reject the second digit. This requires direct style rather than
                                                                 // combinatory, since the parser's behavior changes as the parse is happening.
-                                                                backreference(p)   = map(char('\\') /~join/digit /digit, "+'#{_[1]}#{_[2]}'".qf)(p)
+                                                                backreference(p)   = map(char('\\') /digit /~join/digit, "+'#{_[1]}#{_[2]}'".qf)(p)
                                                                                      -re [it && it.v <= context.groups.length ? {v: node('\\', node(it.v), context.groups[it.v]), i: it.i} :
                                                                                                                                 single_digit_backreference(p)]
 
