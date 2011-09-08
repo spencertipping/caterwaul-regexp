@@ -181,7 +181,7 @@ caterwaul.js_all()(function ($) {
                                       term(p)                 = term(p),
                                       atom(p)                 = atom(p),
 
-                                      toplevel                = map(no_pipes /char('|') /~join/toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
+                                      toplevel                = map(no_pipes /char('|') /-join/toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
                                                         -where [no_pipes(p) = no_pipes(p),
                                                                 no_pipes    = map(term /-join/ no_pipes, "node(',', _[0], _[1])".qf) /-alt/ term],
 
@@ -189,45 +189,45 @@ caterwaul.js_all()(function ($) {
                                                         -where [star          = char('*') /-map/ node,
                                                                 plus          = char('+') /-map/ node,
                                                                 question_mark = char('?') /-map/ node,
-                                                                repetition    = map(char('{') /number /~join/char('}'),                    "node('{', node(_[1]), node(_[1]))".qf) /
-                                                                                map(char('{') /number /char(',') /~join/char('}'),         "node('{', node(_[1]), node(Infinity))".qf) /~alt/
-                                                                                map(char('{') /number /char(',') /number /~join/char('}'), "node('{', node(_[1]), node(_[3]))".qf),
+                                                                repetition    = map(char('{') /number /-join/char('}'),                    "node('{', node(_[1]), node(_[1]))".qf) /
+                                                                                map(char('{') /number /char(',') /-join/char('}'),         "node('{', node(_[1]), node(Infinity))".qf) /-alt/
+                                                                                map(char('{') /number /char(',') /number /-join/char('}'), "node('{', node(_[1]), node(_[3]))".qf),
 
-                                                                modifier      = star /plus /~alt/repetition,    // Deliberately omitting question mark, because it can't be non-greedy
+                                                                modifier      = star /plus /-alt/repetition,    // Deliberately omitting question mark, because it can't be non-greedy
 
                                                                 non_greedy    = char('?'),
-                                                                modifiers     = map(modifier /-join/ non_greedy, "_[0] -se [it.data += _[1]]".qf) /modifier /~alt/question_mark],
+                                                                modifiers     = map(modifier /-join/ non_greedy, "_[0] -se [it.data += _[1]]".qf) /modifier /-alt/question_mark],
 
                                       atom                    = base
-                                                        -where [positive_lookahead = map(string('(?=') /toplevel /~join/string(')'), "node('(?=', _[1])".qf),
-                                                                negative_lookahead = map(string('(?!') /toplevel /~join/string(')'), "node('(?!', _[1])".qf),
-                                                                forgetful_group    = map(string('(?:') /toplevel /~join/string(')'), "node('(?:', _[1])".qf),
-                                                                group              = map(string('(')   /toplevel /~join/string(')'), "node('(',   _[1]) -se- add_group(it)".qf),
+                                                        -where [positive_lookahead = map(string('(?=') /toplevel /-join/string(')'), "node('(?=', _[1])".qf),
+                                                                negative_lookahead = map(string('(?!') /toplevel /-join/string(')'), "node('(?!', _[1])".qf),
+                                                                forgetful_group    = map(string('(?:') /toplevel /-join/string(')'), "node('(?:', _[1])".qf),
+                                                                group              = map(string('(')   /toplevel /-join/string(')'), "node('(',   _[1]) -se- add_group(it)".qf),
 
                                                                 word               = map(many(ident),                                "node(_.join(''))".qf),
-                                                                word_term          = map(string('(?:') /word /~join/string(')'),     "node(_[1])".qf),
+                                                                word_term          = map(string('(?:') /word /-join/string(')'),     "node(_[1])".qf),
 
                                                                 character_class(p) = character_class(p),
                                                                 character_class    = map(each /-join/ character_class, "node(',', _[0], _[1])".qf) /-alt/ each
 
-                                                                             -where [each = map(any(1) /char('-') /~join/any(1), "node('-', node(_[0]), node(_[2]))".qf) /
-                                                                                            map(char('\\') /-join/ any(1),       "node(_.join(''))".qf) /~alt/
+                                                                             -where [each = map(any(1) /char('-') /-join/any(1), "node('-', node(_[0]), node(_[2]))".qf) /
+                                                                                            map(char('\\') /-join/ any(1),       "node(_.join(''))".qf) /-alt/
                                                                                             map(not(1, char(']')),               node)],
 
-                                                                character_not_in   = map(string('[^') /character_class /~join/string(']'), "node('[^', _[1])".qf),
-                                                                character_in       = map(string('[')  /character_class /~join/string(']'), "node('[',  _[1])".qf),
+                                                                character_not_in   = map(string('[^') /character_class /-join/string(']'), "node('[^', _[1])".qf),
+                                                                character_in       = map(string('[')  /character_class /-join/string(']'), "node('[',  _[1])".qf),
 
                                                                 zero_width         = char('^$') /-map/ node,
                                                                 escaped            = map(char('\\') /-join/ char('BbWwSsDdfnrtv0*+.?|()[]{}\\$^'), "node(_.join(''))".qf),
                                                                 escaped_slash      = map(string('\\/'),                                            "node('/')".qf),
 
                                                                 control            = string('\\c') /-join/ any(1)            /-map/ "node(_.join(''))".qf,
-                                                                hex_code           = string('\\x') /hex /~join/hex           /-map/ "node(_.join(''))".qf,
-                                                                unicode            = string('\\u') /hex /hex /hex /~join/hex /-map/ "node(_.join(''))".qf,
+                                                                hex_code           = string('\\x') /hex /-join/hex           /-map/ "node(_.join(''))".qf,
+                                                                unicode            = string('\\u') /hex /hex /hex /-join/hex /-map/ "node(_.join(''))".qf,
 
                                                                 // Fun stuff: Is the backreference within bounds? If not, then reject the second digit. This requires direct style rather than
                                                                 // combinatory, since the parser's behavior changes as the parse is happening.
-                                                                backreference(p)   = map(char('\\') /digit /~join/digit, "+'#{_[1]}#{_[2]}'".qf)(p)
+                                                                backreference(p)   = map(char('\\') /digit /-join/digit, "+'#{_[1]}#{_[2]}'".qf)(p)
                                                                                      -re [it && it.v <= context.groups.length ? {v: node('\\', node(it.v), context.groups[it.v]), i: it.i} :
                                                                                                                                 single_digit_backreference(p)]
 
