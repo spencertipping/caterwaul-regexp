@@ -1,7 +1,15 @@
 #!/usr/bin/perl
-# Run perldoc on this file for documentation.
+# 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
 
-# For the benefit of HTML viewers:
+# This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
+# really gnarly). If you're curious what it's made of, I recommend reading
+# http://github.com/spencertipping/writing-self-modifying-perl.
+#
+# If you got one of these from someone and don't know what to do with it, send
+# it to spencer@spencertipping.com and I'll see if I can figure out what it
+# does.
+
+# For the benefit of HTML viewers (this is hack):
 # <div id='cover' style='position: absolute; left: 0; top: 0; width: 10000px; height: 10000px; background: white'></div>
 
 $|++;
@@ -278,9 +286,17 @@ meta::bootstrap('html', <<'__');
 __
 meta::bootstrap('initialization', <<'__');
 #!/usr/bin/perl
-# Run perldoc on this file for documentation.
+# 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
 
-# For the benefit of HTML viewers:
+# This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
+# really gnarly). If you're curious what it's made of, I recommend reading
+# http://github.com/spencertipping/writing-self-modifying-perl.
+#
+# If you got one of these from someone and don't know what to do with it, send
+# it to spencer@spencertipping.com and I'll see if I can figure out what it
+# does.
+
+# For the benefit of HTML viewers (this is hack):
 # <div id='cover' style='position: absolute; left: 0; top: 0; width: 10000px; height: 10000px; background: white'></div>
 
 $|++;
@@ -2505,7 +2521,7 @@ sub is_code    {map /^\s*[^A-Z\|\s]/o, @_}
 sub is_blank   {map /^\n/o, @_}
 sub comment    {my ($text, $s, $e) = @_; join "\n", map("$s $_$e", split /\n/, $text)}
 
-sub paragraphs {map split(/(\n{2,})/, $_), @_}
+sub paragraphs {map split(/((?:\n\h*){2,})/, $_), @_}
 
 my ($filename) = @_;
 
@@ -2520,6 +2536,7 @@ my ($start, $end) = split /,/o, $comments_for_extension{lc($other_extension || $
 
 join '', map(is_code($_) || is_blank($_) ? ($_ =~ /^\s*c\n(.*)$/so ? $1 : $_) : comment($_, $start, $end), paragraphs retrieve($filename)),
          "\n$start $generated_string $end\n";
+
 __
 meta::function('sdoc-html', <<'__');
 # Converts SDoc to logically-structured HTML. Sections end up being nested,
@@ -3116,10 +3133,10 @@ function::modules                                           507520e85cd7f1f1d4a3
 function::render                                            294736f966f2af3fdd28e9c38e1f1d31
 function::repl                                              4e54c4a46a6381c0cd6533e75b4bc062
 function::test                                              5a7fe339ff48a35fe30983365af1e2a1
-parent::/home/spencertipping/bin/repository                 50b3981a563910cc2f2e206b17514504
-parent::/home/spencertipping/conjectures/perl-objects/js    67e8e3410e9b195d2b43f6c446042e3c
-parent::/home/spencertipping/conjectures/perl-objects/sdoc  f938653251b89b98cbcc26c713a2dae7
-parent::preprocessor                                        4695da77689b5766150749851560c16e
+parent::/home/spencertipping/bin/repository                 5b2a3158563910cc089b10ca719b56f5
+parent::/home/spencertipping/conjectures/perl-objects/js    e9e4efc88538b3648136d272a9b06099
+parent::/home/spencertipping/conjectures/perl-objects/sdoc  80a565297328b30d6e95028d03bd7861
+parent::preprocessor                                        09a56657d0fde76fcf3fa664d2c6b4ca
 sdoc::html::test                                            69631229b55eddc4f7402badb13f4fe1
 sdoc::js::console                                           6b315e3398a0669509f353a260f11716
 sdoc::js::dependencies                                      f98fdf7af0dc93d98f0392aff155c9cf
@@ -3131,12 +3148,12 @@ sdoc::js::test-setup                                        c8b68de30eece1fcbace
 __
 meta::parent('/home/spencertipping/bin/configuration', <<'__');
 meta::type::configuration                7f5ba514d47ac29a3c226d0e331d9da4
-parent::/home/spencertipping/bin/object  97acda5f35b8f6cd6d6f61ad515f0d3e
+parent::/home/spencertipping/bin/object  d53d1f464e12d065394298dd96d22301
 
 __
 meta::parent('/home/spencertipping/bin/object', <<'__');
 bootstrap::html                         f44dd03cb0c904b3a5f69fbda5f018d0
-bootstrap::initialization               7637e32ba308624d824eacc9337c2512
+bootstrap::initialization               1cf74e7209f32722a79b6e49e3907fd3
 bootstrap::perldoc                      5793df44bdd2526bb461272924abfd4b
 function::ad                            77a05d9a6fef7871b2c3e8e94b56870a
 function::alias                         fb63bb3836ab968de2ee93f33d1704ec
@@ -3253,21 +3270,21 @@ __
 meta::parent('/home/spencertipping/bin/repository', <<'__');
 function::dupdate                               3203750417390913ae3892002b53bdc1
 meta::type::cached_dependency                   b9dc0b20c2d3af0deb3b835b20cac4a7
-parent::/home/spencertipping/bin/configuration  6f3e18f610849f59cc500d1b9d9d4db0
+parent::/home/spencertipping/bin/configuration  791f0ab933df84326bcabf75ca5caaf4
 retriever::http                                 a23617a5787de41d1a89ad4496cacce3
 
 __
 meta::parent('/home/spencertipping/conjectures/perl-objects/js', <<'__');
 meta::type::js                           0377fcc438f3af85ec87d4770b8cd307
-parent::/home/spencertipping/bin/object  97acda5f35b8f6cd6d6f61ad515f0d3e
+parent::/home/spencertipping/bin/object  d53d1f464e12d065394298dd96d22301
 
 __
 meta::parent('/home/spencertipping/conjectures/perl-objects/sdoc', <<'__');
-function::sdoc                           4d33dcf625897e463bb30fc91cb94339
+function::sdoc                           237d9c094c1f8ef0c074071618f0af25
 function::sdoc-html                      7e7de47fe059a336309a4a0c06856401
 function::sdocp                          c3d738d982ba87418a298ff58478a85b
 meta::type::sdoc                         22cd7315641d38c9d536344e83c36bed
-parent::/home/spencertipping/bin/object  97acda5f35b8f6cd6d6f61ad515f0d3e
+parent::/home/spencertipping/bin/object  d53d1f464e12d065394298dd96d22301
 retriever::html-sdoc                     2a5d5aa45e2d7576f79e045177d8705c
 retriever::sdoc                          662061e9e41491e2a1debd6862ccf1e7
 retriever::sdocp                         330694ea14a23bb04b65c761075cd946
@@ -3275,7 +3292,7 @@ retriever::sdocp                         330694ea14a23bb04b65c761075cd946
 __
 meta::parent('object', <<'__');
 bootstrap::html                         f44dd03cb0c904b3a5f69fbda5f018d0
-bootstrap::initialization               7637e32ba308624d824eacc9337c2512
+bootstrap::initialization               1cf74e7209f32722a79b6e49e3907fd3
 bootstrap::perldoc                      5793df44bdd2526bb461272924abfd4b
 function::ad                            77a05d9a6fef7871b2c3e8e94b56870a
 function::alias                         fb63bb3836ab968de2ee93f33d1704ec
@@ -3393,7 +3410,7 @@ meta::parent('preprocessor', <<'__');
 function::preprocess           ab5526a02ff417d4c162357dc327e7c4
 meta::functor::html-templates  2771200f87e9cbfeecfb5f8a0f796f18
 meta::type::template           bc4b0c80b5efc716b19e99b832c22bf3
-parent::object                 97acda5f35b8f6cd6d6f61ad515f0d3e
+parent::object                 d53d1f464e12d065394298dd96d22301
 retriever::pp                  3b5f5c5d30c5a04f72056dedaacfe7b7
 template::comment              dfe273d2dad3d8159b847545e4e5c309
 template::eval                 1a0e2124a05056be4abc11803883c294
