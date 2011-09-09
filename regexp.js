@@ -73,76 +73,77 @@ caterwaul.js_all()(function ($) {
          // any children. This is used by the rmap() method, which needs to build up a parallel tree but will add the children manually. That's what the 'data instanceof this.constructor'
          // check is all about.
 
-         regexp_ctor(data, context) = data instanceof this.constructor ?
-                                        this -se [it.data = data.data, it.length = 0, it.context = data.context] :
-                                        this -se [it.data = data,      it.length = 0, it.context = context,      Array.prototype.slice.call(arguments, 2) *![it.push(x)] -seq],
+         regexp_ctor(xs = arguments) = where [data = xs[0], context = xs[1]]
+                                             [data instanceof this.constructor ?
+                                                this -se [it.data = data.data, it.length = 0, it.context = data.context] :
+                                                this -se [it.data = data,      it.length = 0, it.context = context,      Array.prototype.slice.call(xs, 2) *![it.push(x)] -seq]],
 
-         regexp_methods             = capture [i()                     = this.context.flags.i,
-                                               m()                     = this.context.flags.m,
-                                               g()                     = this.context.flags.g,
+         regexp_methods              = capture [i()                     = this.context.flags.i,
+                                                m()                     = this.context.flags.m,
+                                                g()                     = this.context.flags.g,
 
-                                               match_groups()          = this.context.groups,
+                                                match_groups()          = this.context.groups,
 
-                                               is_zero_width()         = /^[\^\$]$|^\\[Bb]$/.test(this.data) || this.is_positive_lookahead() || this.is_negative_lookahead(),
-                                               is_one_or_more()        = /^\+\??$/.test(this.data),
-                                               is_zero_or_more()       = /^\*\??$/.test(this.data),
-                                               is_optional()           = /^\?$/.test(this.data),
-                                               is_non_greedy()         = /.\?$/.test(this.data),
-                                               is_repetition()         = /^[\+\*\{]\??$|^\?$/.test(this.data),
+                                                is_zero_width()         = /^[\^\$]$|^\\[Bb]$/.test(this.data) || this.is_positive_lookahead() || this.is_negative_lookahead(),
+                                                is_one_or_more()        = /^\+\??$/.test(this.data),
+                                                is_zero_or_more()       = /^\*\??$/.test(this.data),
+                                                is_optional()           = /^\?$/.test(this.data),
+                                                is_non_greedy()         = /.\?$/.test(this.data),
+                                                is_repetition()         = /^[\+\*\{]\??$|^\?$/.test(this.data),
 
-                                               repeated_child()        = /^\{/.test(this.data) ? this[2] : this[0],
+                                                repeated_child()        = /^\{/.test(this.data) ? this[2] : this[0],
 
-                                               is_character_class()    = /^\[/.test(this.data),
-                                               is_single_escape()      = /^\\.+$/.test(this.data),
+                                                is_character_class()    = /^\[/.test(this.data),
+                                                is_single_escape()      = /^\\.+$/.test(this.data),
 
-                                               is_range()              = /^-$/.test(this.data) && this.length === 2,
+                                                is_range()              = /^-$/.test(this.data) && this.length === 2,
 
-                                               is_atom()               = ! this.length,
+                                                is_atom()               = ! this.length,
 
-                                               is_any_group()          = /^\(/.test(this.data),
-                                               is_group()              = /^\($/.test(this.data),
-                                               is_forgetful()          = /^\(\?:$/.test(this.data),
-                                               is_positive_lookahead() = /^\(\?=$/.test(this.data),
-                                               is_negative_lookahead() = /^\(\?!$/.test(this.data),
+                                                is_any_group()          = /^\(/.test(this.data),
+                                                is_group()              = /^\($/.test(this.data),
+                                                is_forgetful()          = /^\(\?:$/.test(this.data),
+                                                is_positive_lookahead() = /^\(\?=$/.test(this.data),
+                                                is_negative_lookahead() = /^\(\?!$/.test(this.data),
 
-                                               is_backreference()      = /^\\$/.test(this.data),
-                                               is_disjunction()        = /^\|$/.test(this.data) && this.length === 2,
-                                               is_join()               = /^,$/.test(this.data)  && this.length === 2,
+                                                is_backreference()      = /^\\$/.test(this.data),
+                                                is_disjunction()        = /^\|$/.test(this.data) && this.length === 2,
+                                                is_join()               = /^,$/.test(this.data)  && this.length === 2,
 
-                                               lower_limit()           = /^\+\??$/.test(this.data)      ? 1 :
-                                                                         /^\*\??$|^\?$/.test(this.data) ? 0 :
-                                                                         /^\{/.test(this.data)          ? this[0].data :
-                                                                                                          raise [new Error('lower limit is undefined for nonrepetitive node #{this}')],
+                                                lower_limit()           = /^\+\??$/.test(this.data)      ? 1 :
+                                                                          /^\*\??$|^\?$/.test(this.data) ? 0 :
+                                                                          /^\{/.test(this.data)          ? this[0].data :
+                                                                                                           raise [new Error('lower limit is undefined for nonrepetitive node #{this}')],
 
-                                               upper_limit()           = /^[\*\+]\??$/.test(this.data) ? Infinity :
-                                                                         /^\?$/.test(this.data)        ? 1 :
-                                                                         /^\{/.test(this.data)         ? this[1].data :
-                                                                                                         raise [new Error('upper limit is undefined for nonrepetitive node #{this}')],
+                                                upper_limit()           = /^[\*\+]\??$/.test(this.data) ? Infinity :
+                                                                          /^\?$/.test(this.data)        ? 1 :
+                                                                          /^\{/.test(this.data)         ? this[1].data :
+                                                                                                          raise [new Error('upper limit is undefined for nonrepetitive node #{this}')],
 
-                                               minimum_length()        = this.is_zero_width()                                 ? 0 :
-                                                                         this.is_single_escape() || this.is_character_class() ? 1 :
-                                                                         this.is_repetition()                                 ? this.lower_limit() * this.repeated_child().minimum_length() :
-                                                                         this.is_group() || this.is_forgetful()               ? this[0].minimum_length() :
-                                                                         this.is_backreference()                              ? this[1].minimum_length() :
-                                                                         this.is_disjunction()                                ? this[0].minimum_length() /-Math.min/ this[1].minimum_length() :
-                                                                         this.is_join()                                       ? this[0].minimum_length() + this[1].minimum_length() :
-                                                                                                                                this.data.length,
+                                                minimum_length()        = this.is_zero_width()                                 ? 0 :
+                                                                          this.is_single_escape() || this.is_character_class() ? 1 :
+                                                                          this.is_repetition()                                 ? this.lower_limit() * this.repeated_child().minimum_length() :
+                                                                          this.is_group() || this.is_forgetful()               ? this[0].minimum_length() :
+                                                                          this.is_backreference()                              ? this[1].minimum_length() :
+                                                                          this.is_disjunction()                                ? this[0].minimum_length() /-Math.min/ this[1].minimum_length() :
+                                                                          this.is_join()                                       ? this[0].minimum_length() + this[1].minimum_length() :
+                                                                                                                                 this.data.length,
 
-                                               toString()              = this.is_any_group()                                ? this.data + this[0].toString() + ')' :
-                                                                         this.is_character_class()                          ? this.data + this[0].toString() + ']' :
-                                                                         this.is_range()                                    ? '#{this[0].toString()}-#{this[1].toString()}' :
-                                                                         this.is_zero_or_more() || this.is_one_or_more() ||
-                                                                                                   this.is_optional()       ? this[0].toString() + this.data :
-                                                                         this.is_repetition()                               ? this[2].toString() +
-                                                                                                                              (this[0].data === this[1].data ? '{#{this[0].data}}' :
-                                                                                                                               this[1].data === Infinity     ? '{#{this[0].data},}' :
-                                                                                                                                                               '{#{this[0].data},#{this[1].data}}') :
-                                                                         this.is_zero_width()                               ? this.data :
-                                                                         this.is_backreference()                            ? '\\#{this[0].data}' :
-                                                                         this.is_disjunction()                              ? '#{this[0].toString()}|#{this[1].toString()}' :
-                                                                         this.is_join()                                     ? '#{this[0].toString()}#{this[1].toString()}' :
-                                                                         this.is_atom()                                     ? /^\w{2,}$/.test(this.data) ? '(?:#{this.data})' : this.data :
-                                                                                                                              this.data],
+                                                toString()              = this.is_any_group()                                ? this.data + this[0].toString() + ')' :
+                                                                          this.is_character_class()                          ? this.data + this[0].toString() + ']' :
+                                                                          this.is_range()                                    ? '#{this[0].toString()}-#{this[1].toString()}' :
+                                                                          this.is_zero_or_more() || this.is_one_or_more() ||
+                                                                                                    this.is_optional()       ? this[0].toString() + this.data :
+                                                                          this.is_repetition()                               ? this[2].toString() +
+                                                                                                                               (this[0].data === this[1].data ? '{#{this[0].data}}' :
+                                                                                                                                this[1].data === Infinity     ? '{#{this[0].data},}' :
+                                                                                                                                                                '{#{this[0].data},#{this[1].data}}') :
+                                                                          this.is_zero_width()                               ? this.data :
+                                                                          this.is_backreference()                            ? '\\#{this[0].data}' :
+                                                                          this.is_disjunction()                              ? '#{this[0].toString()}|#{this[1].toString()}' :
+                                                                          this.is_join()                                     ? '#{this[0].toString()}#{this[1].toString()}' :
+                                                                          this.is_atom()                                     ? /^\w{2,}$/.test(this.data) ? '(?:#{this.data})' : this.data :
+                                                                                                                               this.data],
 
          regexp_parse(r, options)   = join(toplevel, end)({i: 0}) -re [it ? it.v[0] : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
 
