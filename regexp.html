@@ -358,6 +358,7 @@ meta::cache('parent-identification', <<'__');
 /home/spencertipping/bin/repository 05bc3036c343fdb8aec5b0be12a9b19e
 /home/spencertipping/conjectures/perl-objects/js 246bc56c88e8e8daae3737dbb16a2a2c
 /home/spencertipping/conjectures/perl-objects/sdoc a1e8480e579614c01dabeecf0f963bcc
+git-integration 9fabb9b6f2f374c35ddcc26549ac2b65
 n 
 object 99aeabc9ec7fe80b1b39f5e53dc7e49e
 preprocessor 70dae4b46eb4e06798ec6f38d17d4c7b
@@ -2276,6 +2277,31 @@ my $name = pop @_;
 file::write($name, join "\n", retrieve(@_));
 __
 meta::function('extern', '&{$_[0]}(retrieve(@_[1 .. $#_]));');
+meta::function('gU', <<'__');
+sh("git push @_");
+
+__
+meta::function('ga', <<'__');
+sh("git add @_");
+
+__
+meta::function('gc', <<'__');
+around_hook('git-commit', @_, sub {
+  my $message = join ' ', @_;
+  $message =~ s/'/\\'/g;
+  enable();
+  sh("git commit -a -m '$message'");
+  disable()});
+
+__
+meta::function('gd', <<'__');
+sh('git diff');
+
+__
+meta::function('gl', <<'__');
+sh("git log @_");
+
+__
 meta::function('grep', <<'__');
 # Looks through attributes for a pattern. Usage is grep pattern [options], where
 # [options] is the format as provided to select_keys.
@@ -2305,6 +2331,14 @@ unless ($$options{'-C'}) {
   s/^/\033[1;32m/o && s/$/\033[0;0m/o for @m_line_numbers}
 
 table_display([@m_attributes], [@m_line_numbers], [@m_lines]);
+__
+meta::function('gs', <<'__');
+sh('git status');
+
+__
+meta::function('gu', <<'__');
+sh("git pull @_");
+
 __
 meta::function('hash', 'fast_hash(@_);');
 meta::function('hook', <<'__');
@@ -3288,6 +3322,17 @@ parent::/home/spencertipping/bin/object  d53d1f464e12d065394298dd96d22301
 retriever::html-sdoc                     2a5d5aa45e2d7576f79e045177d8705c
 retriever::sdoc                          662061e9e41491e2a1debd6862ccf1e7
 retriever::sdocp                         330694ea14a23bb04b65c761075cd946
+
+__
+meta::parent('git-integration', <<'__');
+function::gU                             f15ab8170ea981dd7b216c75af5d3f63
+function::ga                             505b3d9a22ca7cf04c60bda01ff3f140
+function::gc                             0378d3a25fad4fa0feff9cb50c0c5d89
+function::gd                             cff1e868c7c69780a2263c8c7fd75f90
+function::gl                             492e2750409588f8b61a8b8e339e42c1
+function::gs                             4ea8aeccb36ab83702062e4359e8600b
+function::gu                             fdd2e61e0ea981dda6d407df63c0e47e
+parent::/home/spencertipping/bin/object  d53d1f464e12d065394298dd96d22301
 
 __
 meta::parent('object', <<'__');
