@@ -67,6 +67,7 @@ caterwaul.js_all()(function ($) {
   $.regexp(r, options) = $.regexp.parse.apply(this, arguments),
   $.regexp.syntax      = regexp_ctor /-$.syntax_subclass/ regexp_methods,
   $.regexp.parse       = regexp_parse,
+  $.regexp.compile     = regexp_compile,
 
   where [// Implementation note:
          // Copy-constructor functionality is triggered by passing an instance of the tree into its own constructor. The goal is to obtain a new instance of the same kind of tree, but without
@@ -81,6 +82,8 @@ caterwaul.js_all()(function ($) {
          regexp_methods              = capture [i()                     = this.context.flags.i,
                                                 m()                     = this.context.flags.m,
                                                 g()                     = this.context.flags.g,
+
+                                                concat(x)               = new this.constructor(',', this.context, this, x),
 
                                                 match_groups()          = this.context.groups,
 
@@ -144,6 +147,8 @@ caterwaul.js_all()(function ($) {
                                                                           this.is_join()                                     ? '#{this[0].toString()}#{this[1].toString()}' :
                                                                           this.is_atom()                                     ? /^\w{2,}$/.test(this.data) ? '(?:#{this.data})' : this.data :
                                                                                                                                this.data],
+
+         regexp_compile(r)          = new RegExp(r.toString(), [r.i() ? 'i' : '', r.m() ? 'm' : '', r.g() ? 'g' : ''].join('')),
 
          regexp_parse(r, options)   = join(toplevel, end)({i: 0}) -re [it ? it.v[0] : raise [new Error('caterwaul.regexp(): failed to parse #{r.toString()}')]]
 
