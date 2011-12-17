@@ -2121,7 +2121,7 @@ caterwaul.js_all()(function ($) {
                                       node(xs = arguments)    = new $.regexp.syntax(xs[0], context) -se- Array.prototype.slice.call(xs, 1) *![it.push(x)] /seq,
 
                                       // A very small and not very efficient parser combinator library without memoization.
-                                      char(c)(p)              = p.i <  s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i),            i: p.i + 1},
+                                      oneof(c)(p)             = p.i <  s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i),            i: p.i + 1},
                                       string(cs)(p)           = p.i <  s.length && s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
                                       not(n, f)(p)            = p.i >= s.length || f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
                                       any(n)(p)               = p.i <  s.length && {v: s.substr(p.i, n), i: p.i + n},
@@ -2132,9 +2132,9 @@ caterwaul.js_all()(function ($) {
 
                                       map(parser, f)(p)       = {v: f.call(result, result.v), i: result.i} -when.result -where [result = parser(p)],
 
-                                      ident                   = char('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
-                                      digit                   = char('0123456789'),
-                                      hex                     = char('0123456789ABCDEFabcdef'),
+                                      ident                   = oneof('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
+                                      digit                   = oneof('0123456789'),
+                                      hex                     = oneof('0123456789ABCDEFabcdef'),
                                       number                  = many(digit) /-map/ "+_.join('')".qf,
 
                                       end(p)                  = p.i === s.length && p,
@@ -2144,21 +2144,21 @@ caterwaul.js_all()(function ($) {
                                       term(p)                 = term(p),
                                       atom(p)                 = atom(p),
 
-                                      toplevel                = map(no_pipes /char('|') /-join/toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
+                                      toplevel                = map(no_pipes /oneof('|') /-join/toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
                                                         -where [no_pipes(p) = no_pipes(p),
                                                                 no_pipes    = map(term /-join/ no_pipes, "node(',', _[0], _[1])".qf) /-alt/ term],
 
                                       term                    = map(atom /-join/ modifiers, "_[1] -se- it.push(_[0])".qf) /-alt/ atom
-                                                        -where [star          = char('*') /-map/ node,
-                                                                plus          = char('+') /-map/ node,
-                                                                question_mark = char('?') /-map/ node,
-                                                                repetition    = map(char('{') /number /-join/char('}'),                    "node('{', node(_[1]), node(_[1]))".qf) /
-                                                                                map(char('{') /number /char(',') /-join/char('}'),         "node('{', node(_[1]), node(Infinity))".qf) /-alt/
-                                                                                map(char('{') /number /char(',') /number /-join/char('}'), "node('{', node(_[1]), node(_[3]))".qf),
+                                                        -where [star          = oneof('*') /-map/ node,
+                                                                plus          = oneof('+') /-map/ node,
+                                                                question_mark = oneof('?') /-map/ node,
+                                                                repetition    = map(oneof('{') /number /-join/oneof('}'),                     "node('{', node(_[1]), node(_[1]))".qf) /
+                                                                                map(oneof('{') /number /oneof(',') /-join/oneof('}'),         "node('{', node(_[1]), node(Infinity))".qf) /-alt/
+                                                                                map(oneof('{') /number /oneof(',') /number /-join/oneof('}'), "node('{', node(_[1]), node(_[3]))".qf),
 
                                                                 modifier      = star /plus /-alt/repetition,    // Deliberately omitting question mark, because it can't be non-greedy
 
-                                                                non_greedy    = char('?'),
+                                                                non_greedy    = oneof('?'),
                                                                 modifiers     = map(modifier /-join/ non_greedy, "_[0] -se [it.data += _[1]]".qf) /modifier /-alt/question_mark],
 
                                       atom                    = base
@@ -2173,16 +2173,16 @@ caterwaul.js_all()(function ($) {
                                                                 character_class(p) = character_class(p),
                                                                 character_class    = map(each /-join/ character_class, "node(',', _[0], _[1])".qf) /-alt/ each
 
-                                                                             -where [each = map(any(1) /char('-') /-join/any(1), "node('-', node(_[0]), node(_[2]))".qf) /
-                                                                                            map(char('\\') /-join/ any(1),       "node(_.join(''))".qf) /-alt/
-                                                                                            map(not(1, char(']')),               node)],
+                                                                             -where [each = map(any(1) /oneof('-') /-join/any(1), "node('-', node(_[0]), node(_[2]))".qf) /
+                                                                                            map(oneof('\\') /-join/ any(1),       "node(_.join(''))".qf) /-alt/
+                                                                                            map(not(1, oneof(']')),                node)],
 
                                                                 character_not_in   = map(string('[^') /character_class /-join/string(']'), "node('[^', _[1])".qf),
                                                                 character_in       = map(string('[')  /character_class /-join/string(']'), "node('[',  _[1])".qf),
 
-                                                                zero_width         = char('^$') /-map/ node,
-                                                                escaped            = map(char('\\') /-join/ char('BbWwSsDdfnrtv0*+.?|()[]{}\\$^'), "node(_.join(''))".qf),
-                                                                escaped_slash      = map(string('\\/'),                                            "node('/')".qf),
+                                                                zero_width         = oneof('^$') /-map/ node,
+                                                                escaped            = map(oneof('\\') /-join/ oneof('BbWwSsDdfnrtv0*+.?|()[]{}\\$^'), "node(_.join(''))".qf),
+                                                                escaped_slash      = map(string('\\/'),                                              "node('/')".qf),
 
                                                                 control            = string('\\c') /-join/ any(1)            /-map/ "node(_.join(''))".qf,
                                                                 hex_code           = string('\\x') /hex /-join/hex           /-map/ "node(_.join(''))".qf,
@@ -2190,20 +2190,17 @@ caterwaul.js_all()(function ($) {
 
                                                                 // Fun stuff: Is the backreference within bounds? If not, then reject the second digit. This requires direct style rather than
                                                                 // combinatory, since the parser's behavior changes as the parse is happening.
-                                                                backreference(p)   = map(char('\\') /digit /-join/digit, "+'#{_[1]}#{_[2]}'".qf)(p)
+                                                                backreference(p)   = map(oneof('\\') /digit /-join/digit, "+'#{_[1]}#{_[2]}'".qf)(p)
                                                                                      -re [it && it.v <= context.groups.length ? {v: node('\\', node(it.v)), i: it.i} :
                                                                                                                                 single_digit_backreference(p)]
 
-                                                                             -where [single_digit_backreference = map(char('\\') /-join/ digit,
-                                                                                                                      given.xs in node('\\', node(+xs[1])))],
+                                                                             -where [single_digit_backreference = map(oneof('\\') /-join/ digit, given.xs in node('\\', node(+xs[1])))],
 
-                                                                dot                = char('.')              /-map/ node,
-                                                                other              = not(1, char(')|+*?{')) /-map/ node,
+                                                                dot                = oneof('.')              /-map/ node,
+                                                                other              = not(1, oneof(')|+*?{')) /-map/ node,
 
-                                                                maybe_word         = settings.atom === 'word' ? map(many(ident), "node(_.join(''))".qf) /-alt/ other :
-                                                                                                                other,
-
-                                                                maybe_munch_spaces = settings.atom === 'word' ? many(char(' ')) /-alt/ zero : zero,
+                                                                maybe_word         = settings.atom === 'word' ? map(many(ident), "node(_.join(''))".qf) /-alt/ other : other,
+                                                                maybe_munch_spaces = settings.atom === 'word' ? many(oneof(' '))                        /-alt/ zero  : zero,
 
                                                                 base               = map(maybe_munch_spaces /-join/ alt(positive_lookahead, negative_lookahead, forgetful_group, group,
                                                                                                                         character_not_in, character_in, zero_width, escaped, escaped_slash,
