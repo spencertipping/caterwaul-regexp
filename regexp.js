@@ -61,7 +61,7 @@
 //  10. Backreferences             e.g. /(a)\1/
 
 // Backreferences have a peculiarity that I wasn't previously aware of. If there are more than ten match groups at the current parse point, then backreferences are parsed as potentially having
-// two digits. Presumably the engine is insightful enough to discard digits that would forms numbers larger than the number of seen match groups, and this parser does that.
+// two digits. Presumably the engine is insightful enough to discard digits that would form numbers larger than the number of seen match groups, and this parser does that.
 
 caterwaul.js_all()(function ($) {
   $.regexp(r, options) = $.regexp.parse.apply(this, arguments),
@@ -86,6 +86,7 @@ caterwaul.js_all()(function ($) {
                                                 concat(x)               = new this.constructor(',', this.context, this, x),
 
                                                 match_groups()          = this.context.groups,
+                                                referenced_group()      = this.context.groups[this[0].data - 1],
 
                                                 is_zero_width()         = /^[\^\$]$|^\\[Bb]$/.test(this.data) || this.is_positive_lookahead() || this.is_negative_lookahead(),
                                                 is_one_or_more()        = /^\+\??$/.test(this.data),
@@ -127,7 +128,7 @@ caterwaul.js_all()(function ($) {
                                                                           this.is_single_escape() || this.is_character_class() ? 1 :
                                                                           this.is_repetition()                                 ? this.lower_limit() * this.repeated_child().minimum_length() :
                                                                           this.is_group() || this.is_forgetful()               ? this[0].minimum_length() :
-                                                                          this.is_backreference()                              ? this[1].minimum_length() :
+                                                                          this.is_backreference()                              ? this.referenced_group().minimum_length() :
                                                                           this.is_disjunction()                                ? this[0].minimum_length() /-Math.min/ this[1].minimum_length() :
                                                                           this.is_join()                                       ? this[0].minimum_length() + this[1].minimum_length() :
                                                                                                                                  this.data.length,
@@ -138,9 +139,9 @@ caterwaul.js_all()(function ($) {
                                                                           this.is_zero_or_more() || this.is_one_or_more() ||
                                                                                                     this.is_optional()       ? this[0].toString() + this.data :
                                                                           this.is_repetition()                               ? this[2].toString() +
-                                                                                                                               (this[0].data === this[1].data ? '{#{this[0].data}}' :
-                                                                                                                                this[1].data === Infinity     ? '{#{this[0].data},}' :
-                                                                                                                                                                '{#{this[0].data},#{this[1].data}}') :
+                                                                                                                         (this[0].data === this[1].data ? '{#{this[0].data}}' :
+                                                                                                                          this[1].data === Infinity     ? '{#{this[0].data},}' :
+                                                                                                                                                          '{#{this[0].data},#{this[1].data}}') :
                                                                           this.is_zero_width()                               ? this.data :
                                                                           this.is_backreference()                            ? '\\#{this[0].data}' :
                                                                           this.is_disjunction()                              ? '#{this[0].toString()}|#{this[1].toString()}' :
@@ -159,11 +160,12 @@ caterwaul.js_all()(function ($) {
                                       flags                   = pieces[2] -re- {i: /i/.test(it), m: /m/.test(it), g: /g/.test(it)},
                                       context                 = {groups: [], flags: flags},
 
-                                      add_group(node)         = context.groups.push(node),
+                                      added_groups            = {},
+                                      add_group(node, p)      = context.groups.push(node) -se [added_groups[p.i] = true] -unless [added_groups[p.i]],
 
                                       node(xs = arguments)    = new $.regexp.syntax(xs[0], context) -se- Array.prototype.slice.call(xs, 1) *![it.push(x)] /seq,
 
-                                      // A very small parser combinator library without memoization.
+                                      // A very small and not very efficient parser combinator library without memoization.
                                       char(c)(p)              = p.i <  s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i),            i: p.i + 1},
                                       string(cs)(p)           = p.i <  s.length && s.substr(p.i, cs.length) === cs && {v: s.substr(p.i, cs.length), i: p.i + cs.length},
                                       not(n, f)(p)            = p.i >= s.length || f(p) ? false : {v: s.substr(p.i, n), i: p.i + n},
@@ -173,7 +175,7 @@ caterwaul.js_all()(function ($) {
                                       join(ps = arguments)(p) = ps /[p][x0 && x(x0) -se [it && ns.push(it.v)]] -seq -re- {v: ns, i: it.i} /when.it -where [ns = []],
                                       zero(p)                 = p,
 
-                                      map(parser, f)(p)       = {v: f(result.v), i: result.i} -when.result -where [result = parser(p)],
+                                      map(parser, f)(p)       = {v: f.call(result, result.v), i: result.i} -when.result -where [result = parser(p)],
 
                                       ident                   = char('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
                                       digit                   = char('0123456789'),
@@ -208,7 +210,7 @@ caterwaul.js_all()(function ($) {
                                                         -where [positive_lookahead = map(string('(?=') /toplevel /-join/string(')'), "node('(?=', _[1])".qf),
                                                                 negative_lookahead = map(string('(?!') /toplevel /-join/string(')'), "node('(?!', _[1])".qf),
                                                                 forgetful_group    = map(string('(?:') /toplevel /-join/string(')'), "node('(?:', _[1])".qf),
-                                                                group              = map(string('(')   /toplevel /-join/string(')'), "node('(',   _[1]) -se- add_group(it)".qf),
+                                                                group              = map(string('(')   /toplevel /-join/string(')'), "node('(', _[1]) -se- add_group(it, this)".qf),
 
                                                                 word               = map(many(ident),                                "node(_.join(''))".qf),
                                                                 word_term          = map(string('(?:') /word /-join/string(')'),     "node(_[1])".qf),
@@ -234,11 +236,11 @@ caterwaul.js_all()(function ($) {
                                                                 // Fun stuff: Is the backreference within bounds? If not, then reject the second digit. This requires direct style rather than
                                                                 // combinatory, since the parser's behavior changes as the parse is happening.
                                                                 backreference(p)   = map(char('\\') /digit /-join/digit, "+'#{_[1]}#{_[2]}'".qf)(p)
-                                                                                     -re [it && it.v <= context.groups.length ? {v: node('\\', node(it.v), context.groups[it.v]), i: it.i} :
+                                                                                     -re [it && it.v <= context.groups.length ? {v: node('\\', node(it.v)), i: it.i} :
                                                                                                                                 single_digit_backreference(p)]
 
                                                                              -where [single_digit_backreference = map(char('\\') /-join/ digit,
-                                                                                                                      given.xs in node('\\', node(+xs[1]), context.groups[+xs[1]]))],
+                                                                                                                      given.xs in node('\\', node(+xs[1])))],
 
                                                                 dot                = char('.')              /-map/ node,
                                                                 other              = not(1, char(')|+*?{')) /-map/ node,
