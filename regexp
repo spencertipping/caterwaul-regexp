@@ -1776,8 +1776,10 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                                 is_non_greedy()         = /.\?$/.test(this.data),
                                                 is_repetition()         = /^[\+\*\{]\??$|^\?$/.test(this.data),
 
-                                                // Caterwaul wildcard, not regexp wildcard
+                                                // Caterwaul match support methods (these have nothing to do with regexp semantics)
                                                 is_wildcard()           = this.is_atom() && /^_/.test(this.data),
+                                                leaf_nodes_only()       = false,
+                                                without_metadata()      = this,
 
                                                 repeated_child()        = /^\{/.test(this.data) ? this[2] : this[0],
 
@@ -1830,7 +1832,6 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                                                           this.is_backreference()                            ? '\\#{this[0].data}' :
                                                                           this.is_disjunction()                              ? '#{this[0].toString()}|#{this[1].toString()}' :
                                                                           this.is_join()                                     ? '#{this[0].toString()}#{this[1].toString()}' :
-                                                                          this.is_atom()                                     ? /^\w{2,}$/.test(this.data) ? '(?:#{this.data})' : this.data :
                                                                                                                                this.data],
 
          regexp_compile(r)          = new RegExp(r.toString(), [r.i() ? 'i' : '', r.m() ? 'm' : '', r.g() ? 'g' : ''].join('')),
