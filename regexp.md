@@ -94,6 +94,9 @@ two digits. Presumably the engine is insightful enough to discard digits that wo
                                                     is_non_greedy()         = /.\?$/.test(this.data),
                                                     is_repetition()         = /^[\+\*\{]\??$|^\?$/.test(this.data),
 
+                                                    // Caterwaul wildcard, not regexp wildcard
+                                                    is_wildcard()           = this.is_atom() && /^_/.test(this.data),
+
                                                     repeated_child()        = /^\{/.test(this.data) ? this[2] : this[0],
 
                                                     is_character_class()    = /^\[/.test(this.data),
