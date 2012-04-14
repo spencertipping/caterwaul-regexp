@@ -1730,16 +1730,16 @@ Setting {atom: 'word'} implies that literal whitespace is removed from the regex
 Supported syntax.
 This library parses the following constructs (obtained from the Mozilla regular expression documentation: https://developer.mozilla.org/en/JavaScript/Guide/Regular_Expressions):
 
-| 1. Atoms                      e.g. /foo/, /bar./
-  2. Zero-width assertions      e.g. /^/, /$/, /\b/, /\B/
-  3. Repetition                 e.g. /a+/, /b*/, /a+?/, /b*?/, /c{10,20}/, /c{10}/, /c{10,}/, /c{10,20}?/, /c{10,}?/, /d?/
-  4. Capturing                  e.g. /a(.)c/
-  5. Non-capturing              e.g. /a(?:.)c/
-  6. Lookahead                  e.g. /a(?=b)/, /a(?!b)/
-  7. Disjunction                e.g. /a|b/
-  8. Character classes          e.g. /[abc]/, /[^abc]/, /[a-df]/
-  9. Special characters         e.g. /\w\W\s\S\d\D\f\n\r\t\v\0\xff\uffff/
- 10. Backreferences             e.g. /(a)\1/
+|  1. Atoms                      e.g. /foo/, /bar./
+   2. Zero-width assertions      e.g. /^/, /$/, /\b/, /\B/
+   3. Repetition                 e.g. /a+/, /b*/, /a+?/, /b*?/, /c{10,20}/, /c{10}/, /c{10,}/, /c{10,20}?/, /c{10,}?/, /d?/
+   4. Capturing                  e.g. /a(.)c/
+   5. Non-capturing              e.g. /a(?:.)c/
+   6. Lookahead                  e.g. /a(?=b)/, /a(?!b)/
+   7. Disjunction                e.g. /a|b/
+   8. Character classes          e.g. /[abc]/, /[^abc]/, /[a-df]/
+   9. Special characters         e.g. /\w\W\s\S\d\D\f\n\r\t\v\0\xff\uffff/
+  10. Backreferences             e.g. /(a)\1/
 
 Backreferences have a peculiarity that I wasn't previously aware of. If there are more than ten match groups at the current parse point, then backreferences are parsed as potentially having
 two digits. Presumably the engine is insightful enough to discard digits that would form numbers larger than the number of seen match groups, and this parser does that.
