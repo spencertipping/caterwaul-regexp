@@ -254,6 +254,7 @@ meta::functor::editable 'waul', inherit => 1, extension => '.waul', default => '
 
 __
 meta::alias('e', 'edit sdoc::waul::regexp');
+meta::alias('erf', 'edit function::render');
 meta::bootstrap('html', <<'__');
 <html>
   <head>
@@ -634,9 +635,12 @@ else    {pop @{$transient{path}}}
 __
 meta::function('reload', 'around_hook(\'reload\', sub {execute($_) for grep ! /^bootstrap::/, keys %data});');
 meta::function('render', <<'__');
+my ($options, @stuff) = separate_options(@_);
+
 file::write('regexp.waul', retrieve('waul::regexp'));
 sh('waul regexp.waul');
-minify_yui('-m', 'regexp.js');
+
+minify_yui('-m', 'regexp.js') unless $$options{-M};
 
 __
 meta::function('rm', <<'__');
@@ -1865,7 +1869,7 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                       term(p)                 = term(p),
                                       atom(p)                 = atom(p),
 
-                                      toplevel                = map(no_pipes /oneof('|') /-join/toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
+                                      toplevel                = map(no_pipes /oneof('|') /-join/toplevel, "node('|', _[0], _[2])".qf) /no_pipes /-alt/zero
                                                         -where [no_pipes(p) = no_pipes(p),
                                                                 no_pipes    = map(term /-join/ no_pipes, "node(',', _[0], _[1])".qf) /-alt/ term],
 
@@ -1889,7 +1893,6 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                                                 group              = map(string('(')   /toplevel /-join/string(')'), "node('(', _[1]) -se- add_group(it, this)".qf),
 
                                                                 word               = map(many(ident),                                "node(_.join(''))".qf),
-                                                                word_term          = map(string('(?:') /word /-join/string(')'),     "node(_[1])".qf),
 
                                                                 character_class(p) = character_class(p),
                                                                 character_class    = map(each /-join/ character_class, "node(',', _[0], _[1])".qf) /-alt/ each
@@ -1920,13 +1923,14 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                                                 dot                = oneof('.')              /-map/ node,
                                                                 other              = not(1, oneof(')|+*?{')) /-map/ node,
 
-                                                                maybe_word         = settings.atom === 'word' ? map(many(ident), "node(_.join(''))".qf) /-alt/ other : other,
-                                                                maybe_munch_spaces = settings.atom === 'word' ? many(oneof(' '))                        /-alt/ zero  : zero,
+                                                                maybe_word         = settings.atom === 'word' ? word             /-alt/ other : other,
+                                                                maybe_munch_spaces = settings.atom === 'word' ? many(oneof(' ')) /-alt/ zero  : zero,
 
-                                                                base               = map(maybe_munch_spaces /-join/ alt(positive_lookahead, negative_lookahead, forgetful_group, group,
-                                                                                                                        character_not_in, character_in, zero_width, escaped, escaped_slash,
-                                                                                                                        control, hex_code, unicode, backreference, dot, maybe_word, other),
-                                                                                         "_[1]".qf)]]]});
+                                                                nontrivial_thing   = alt(positive_lookahead, negative_lookahead, forgetful_group, group, character_not_in, character_in,
+                                                                                         zero_width, escaped, escaped_slash, control, hex_code, unicode, backreference, dot, maybe_word),
+
+                                                                base               = maybe_munch_spaces /nontrivial_thing /-join/maybe_munch_spaces /-map/ "_[1]".qf
+                                                                                     /-alt/ nontrivial_thing]]]});
 
 __
 meta::template('comment', '\'\';     # A mechanism for line or block comments.');
