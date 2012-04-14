@@ -88,11 +88,11 @@ two digits. Presumably the engine is insightful enough to discard digits that wo
                                                     referenced_group()      = this.context.groups[this[0].data - 1],
 
                                                     is_zero_width()         = /^[\^\$]$|^\\[Bb]$/.test(this.data) || this.is_positive_lookahead() || this.is_negative_lookahead(),
-                                                    is_one_or_more()        = /^\+\??$/.test(this.data),
-                                                    is_zero_or_more()       = /^\*\??$/.test(this.data),
-                                                    is_optional()           = /^\?$/.test(this.data),
-                                                    is_non_greedy()         = /.\?$/.test(this.data),
-                                                    is_repetition()         = /^[\+\*\{]\??$|^\?$/.test(this.data),
+                                                    is_one_or_more()        = this.length && /^\+\??$/.test(this.data),
+                                                    is_zero_or_more()       = this.length && /^\*\??$/.test(this.data),
+                                                    is_optional()           = this.length && /^\?$/.test(this.data),
+                                                    is_non_greedy()         = this.length && /.\?$/.test(this.data),
+                                                    is_repetition()         = this.length && /^[\+\*\{]\??$|^\?$/.test(this.data),
 
                                                     // Caterwaul match support methods (these have nothing to do with regexp semantics)
                                                     is_wildcard()           = this.is_atom() && /^_/.test(this.data),
