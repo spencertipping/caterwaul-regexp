@@ -638,6 +638,7 @@ meta::function('render', <<'__');
 my ($options, @stuff) = separate_options(@_);
 
 file::write('regexp.waul', retrieve('waul::regexp'));
+file::write('regexp.md',   retrieve('markdown::waul::regexp'));
 sh('waul regexp.waul');
 
 minify_yui('-m', 'regexp.js') unless $$options{-M};
