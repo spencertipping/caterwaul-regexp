@@ -255,6 +255,7 @@ meta::functor::editable 'waul', inherit => 1, extension => '.waul', default => '
 __
 meta::alias('e', 'edit sdoc::waul::regexp');
 meta::alias('erf', 'edit function::render');
+meta::alias('r', 'sh waul -e regexp.js -c :all');
 meta::bootstrap('html', <<'__');
 <html>
   <head>
