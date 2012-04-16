@@ -162,7 +162,9 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                       added_groups            = {},
                                       add_group(node, p)      = context.groups.push(node) -se [added_groups[p.i] = true] -unless [added_groups[p.i]],
 
-                                      node(xs = arguments)    = new $.regexp.syntax(xs[0], context) -se- Array.prototype.slice.call(xs, 1) *![it.push(x)] /seq,
+                                      // Normally, this creates a node with its arguments. Nullary joins are simplified to avoid unnecessary clutter.
+                                      node(xs = arguments)    = xs[0] === ',' && xs[2] === '' ? xs[1]
+                                                                                              : new $.regexp.syntax(xs[0], context) -se- Array.prototype.slice.call(xs, 1) *![it.push(x)] /seq,
 
                                       // A very small and not very efficient parser combinator library without memoization.
                                       oneof(c)(p)             = p.i <  s.length && c.indexOf(s.charAt(p.i)) !== -1 && {v: s.charAt(p.i),            i: p.i + 1},
@@ -188,11 +190,13 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                       term(p)                 = term(p),
                                       atom(p)                 = atom(p),
 
-                                      toplevel                = map(no_pipes /oneof('|') /-join/toplevel, "node('|', _[0], _[2])".qf) /no_pipes /-alt/zero
-                                                        -where [no_pipes(p) = no_pipes(p),
-                                                                no_pipes    = map(term /-join/ no_pipes, "node(',', _[0], _[1])".qf) /-alt/ term],
+                                      maybe_munch_spaces      = settings.atom === 'word' ? many(oneof(' ')) /-alt/ zero : zero,
 
-                                      term                    = map(atom /-join/ modifiers, "_[1] -se- it.push(_[0])".qf) /-alt/ atom
+                                      toplevel                = map(no_pipes /oneof('|') /-join/ toplevel, "node('|', _[0], _[2])".qf) /-alt/ no_pipes
+                                                        -where [no_pipes(p) = no_pipes(p),
+                                                                no_pipes    = map(term /-join/ no_pipes, "node(',', _[0], _[1])".qf) /term /-alt/ map(maybe_munch_spaces, "''".qf)],
+
+                                      term                    = map(atom /modifiers /-join/ maybe_munch_spaces, "_[1] -se- it.push(_[0])".qf) /-alt/ atom
                                                         -where [star          = oneof('*') /-map/ node,
                                                                 plus          = oneof('+') /-map/ node,
                                                                 question_mark = oneof('?') /-map/ node,
@@ -206,10 +210,11 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                                                 modifiers     = map(modifier /-join/ non_greedy, "_[0] -se [it.data += _[1]]".qf) /modifier /-alt/question_mark],
 
                                       atom                    = base
-                                                        -where [positive_lookahead = map(string('(?=') /toplevel /-join/string(')'), "node('(?=', _[1])".qf),
-                                                                negative_lookahead = map(string('(?!') /toplevel /-join/string(')'), "node('(?!', _[1])".qf),
-                                                                forgetful_group    = map(string('(?:') /toplevel /-join/string(')'), "node('(?:', _[1])".qf),
-                                                                group              = map(string('(')   /toplevel /-join/string(')'), "node('(', _[1]) -se- add_group(it, this)".qf),
+                                                        -where [positive_lookahead = string('(?=') /maybe_munch_spaces /toplevel /-join/string(')') /-map/ "node('(?=', _[2])".qf,
+                                                                negative_lookahead = string('(?!') /maybe_munch_spaces /toplevel /-join/string(')') /-map/ "node('(?!', _[2])".qf,
+                                                                forgetful_group    = string('(?:') /maybe_munch_spaces /toplevel /-join/string(')') /-map/ "node('(?:', _[2])".qf,
+                                                                group              = string('(')   /maybe_munch_spaces /toplevel /-join/string(')')
+                                                                                     /-map/ "node('(', _[2]) -se- add_group(it, this)".qf,
 
                                                                 word               = map(many(ident),                                "node(_.join(''))".qf),
 
@@ -243,12 +248,10 @@ caterwaul.module('regexp', 'js_all', function ($) {
                                                                 other              = not(1, oneof(')|+*?{')) /-map/ node,
 
                                                                 maybe_word         = settings.atom === 'word' ? word             /-alt/ other : other,
-                                                                maybe_munch_spaces = settings.atom === 'word' ? many(oneof(' ')) /-alt/ zero  : zero,
 
                                                                 nontrivial_thing   = alt(positive_lookahead, negative_lookahead, forgetful_group, group, character_not_in, character_in,
                                                                                          zero_width, escaped, escaped_slash, control, hex_code, unicode, backreference, dot, maybe_word),
 
-                                                                base               = maybe_munch_spaces /nontrivial_thing /-join/maybe_munch_spaces /-map/ "_[1]".qf
-                                                                                     /-alt/ nontrivial_thing]]]});
+                                                                base               = maybe_munch_spaces /nontrivial_thing /-join/maybe_munch_spaces /-map/ "_[1]".qf]]]});
 
 # Generated by SDoc 
